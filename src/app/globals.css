@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #FAFAFA;
+  --foreground: #1A1A1A;
+  --card: #FFFFFF;
+  --card-foreground: #1A1A1A;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: #F5F5F5;
+  --input-border: rgba(0, 0, 0, 0.10);
+  --hover: rgba(0, 0, 0, 0.03);
+  --muted: #F0F0F0;
+  --muted-foreground: #6B6B6B;
+  --dim: #9A9A9A;
+  --accent: #6E7CF1;
+  --accent-foreground: #FFFFFF;
+  --success: #2DA44E;
+  --warning: #D4A72C;
+  --danger: #CF222E;
+  --handle: #9A9A9A;
+
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --background: #0A0A0B;
+  --foreground: #EDEDEF;
+  --card: #111113;
+  --card-foreground: #EDEDEF;
+  --border: rgba(255, 255, 255, 0.06);
+  --input: #161618;
+  --input-border: rgba(255, 255, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.04);
+  --muted: #1A1A1D;
+  --muted-foreground: #7E7E85;
+  --dim: #52525A;
+  --accent: #6E7CF1;
+  --accent-foreground: #FFFFFF;
+  --success: #2DA44E;
+  --warning: #D4A72C;
+  --danger: #CF222E;
+  --handle: #3B3B42;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-border: var(--input-border);
+  --color-hover: var(--hover);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-dim: var(--dim);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-handle: var(--handle);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-monospace, monospace;
+}
+
+/* Frosted surfaces */
+.bg-frosted {
+  background-color: color-mix(in srgb, var(--background) 80%, transparent);
+}
+
+.glass {
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid var(--border);
+}
+
+/* Semi-transparent surfaces */
+.bg-input-50 {
+  background-color: color-mix(in srgb, var(--input) 50%, transparent);
+}
+
+.bg-card-50 {
+  background-color: color-mix(in srgb, var(--card) 50%, transparent);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+::selection { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s var(--ease-spring) both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.15s var(--ease-spring) both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--muted) 0%, color-mix(in srgb, var(--muted) 60%, var(--border)) 50%, var(--muted) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Stagger delays */
+.stagger-1 { animation-delay: 30ms; }
+.stagger-2 { animation-delay: 60ms; }
+.stagger-3 { animation-delay: 90ms; }
+.stagger-4 { animation-delay: 120ms; }
+.stagger-5 { animation-delay: 150ms; }
+
+/* Node glow effects — subtle */
+.node-glow-orange { box-shadow: 0 0 8px rgba(249, 115, 22, 0.12); }
+.node-glow-green { box-shadow: 0 0 8px rgba(34, 197, 94, 0.12); }
+.node-glow-purple { box-shadow: 0 0 8px rgba(168, 85, 247, 0.12); }
+.node-glow-blue { box-shadow: 0 0 8px rgba(59, 130, 246, 0.12); }
+.node-glow-cyan { box-shadow: 0 0 8px rgba(110, 124, 241, 0.12); }
+.node-glow-amber { box-shadow: 0 0 8px rgba(245, 158, 11, 0.12); }
+.node-glow-indigo { box-shadow: 0 0 8px rgba(99, 102, 241, 0.12); }
+.node-glow-pink { box-shadow: 0 0 8px rgba(236, 72, 153, 0.12); }
+.node-glow-emerald { box-shadow: 0 0 8px rgba(16, 185, 129, 0.12); }
+.node-glow-violet { box-shadow: 0 0 8px rgba(139, 92, 246, 0.12); }
+
+/* Selected edge */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+/* React Flow */
+.react-flow__node { transition: box-shadow 150ms var(--ease-spring); border: none !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; background: transparent !important; }
+.react-flow__edge-path { stroke-width: 1.5; transition: stroke 150ms var(--ease-spring); }
+
+.dark .react-flow__background { background: #0A0A0B; }
+.dark .react-flow__controls { background: #111113; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px; }
+.dark .react-flow__controls-button { background: #111113; border-bottom: 1px solid rgba(255, 255, 255, 0.06); color: #7E7E85; fill: #7E7E85; }
+.dark .react-flow__controls-button:hover { background: rgba(255, 255, 255, 0.04); }
+.dark .react-flow__minimap { background: #111113; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px; }
+
+:not(.dark) .react-flow__background { background: #FAFAFA; }
+:not(.dark) .react-flow__controls { background: #fff; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 6px; }
+:not(.dark) .react-flow__controls-button { background: #fff; border-bottom: 1px solid rgba(0, 0, 0, 0.08); color: #6B6B6B; fill: #6B6B6B; }
+:not(.dark) .react-flow__controls-button:hover { background: rgba(0, 0, 0, 0.03); }
+:not(.dark) .react-flow__minimap { background: #fff; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 6px; }

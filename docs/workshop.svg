@@ -1,0 +1,190 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 650" width="920" height="650">
+  <style>
+    text { font-family: 'Geist', system-ui, -apple-system, sans-serif; }
+    .mono { font-family: 'Geist Mono', ui-monospace, monospace; }
+    .title { font-size: 13px; fill: #A1A1AA; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; }
+    .subtitle { font-size: 11px; fill: #52525A; }
+    .heading { font-size: 10px; fill: #71717A; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+    .heading-a { font-size: 10px; fill: #818CF8; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+    .heading-e { font-size: 10px; fill: #34D399; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+    .lbl { font-size: 12px; fill: #E4E4E7; font-weight: 500; }
+    .lbl-a { font-size: 12px; fill: #818CF8; font-weight: 500; }
+    .lbl-e { font-size: 12px; fill: #34D399; font-weight: 500; }
+    .sub { font-size: 10px; fill: #71717A; }
+    .dim { font-size: 10px; fill: #3F3F46; }
+    .chip { fill: #18181B; stroke: #27272A; stroke-width: 1; rx: 6; }
+    .panel { fill: #111113; stroke: #27272A; stroke-width: 1; rx: 10; }
+    .panel-a { fill: rgba(99,102,241,0.02); stroke: rgba(99,102,241,0.18); stroke-width: 1; rx: 10; }
+    .panel-e { fill: rgba(16,185,129,0.02); stroke: rgba(16,185,129,0.18); stroke-width: 1; rx: 10; }
+    .line { fill: none; stroke: #27272A; stroke-width: 1.5; }
+    .line-a { fill: none; stroke: rgba(99,102,241,0.35); stroke-width: 1.5; }
+    .line-e { fill: none; stroke: rgba(16,185,129,0.35); stroke-width: 1.5; }
+  </style>
+
+  <!-- Background -->
+  <rect width="920" height="650" fill="#09090B" rx="6" />
+
+  <!-- ── Title ── -->
+  <text x="460" y="36" text-anchor="middle" class="mono title">workshop</text>
+  <text x="460" y="54" text-anchor="middle" class="subtitle">visual workflow builder for nanohype templates</text>
+
+
+  <!-- ═══════════════════════════════════════ -->
+  <!--  ROW 1 — Graph Editor   y: 76–128      -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <rect x="200" y="76" width="520" height="52" class="panel" />
+  <text x="220" y="96" class="heading">graph editor</text>
+
+  <rect x="398" y="86" width="100" height="32" class="chip" />
+  <text x="448" y="106" text-anchor="middle" class="lbl">React Flow</text>
+
+  <rect x="506" y="86" width="100" height="32" class="chip" />
+  <text x="556" y="106" text-anchor="middle" class="lbl">Config Panel</text>
+
+  <rect x="614" y="86" width="96" height="32" class="chip" />
+  <text x="662" y="106" text-anchor="middle" class="lbl">Node Palette</text>
+
+  <!-- arrow: editor → nodes -->
+  <line x1="460" y1="128" x2="460" y2="152" class="line" />
+
+
+  <!-- ═══════════════════════════════════════ -->
+  <!--  ROW 2 — Node Types     y: 152–260      -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <rect x="120" y="152" width="540" height="118" class="panel" />
+  <text x="390" y="174" text-anchor="middle" class="heading">9 node types</text>
+
+  <!-- Row A: 5 chips — centered in 540px panel (120–660), 88px each, 12px gap -->
+  <!-- total row width = 5*88 + 4*12 = 488, offset = (540-488)/2 + 120 = 146 -->
+  <rect x="146" y="184" width="88" height="32" class="chip" />
+  <text x="190" y="204" text-anchor="middle" class="lbl-a">Agent</text>
+
+  <rect x="246" y="184" width="88" height="32" class="chip" />
+  <text x="290" y="204" text-anchor="middle" class="lbl">Condition</text>
+
+  <rect x="346" y="184" width="88" height="32" class="chip" />
+  <text x="390" y="204" text-anchor="middle" class="lbl">Router</text>
+
+  <rect x="446" y="184" width="88" height="32" class="chip" />
+  <text x="490" y="204" text-anchor="middle" class="lbl">Transform</text>
+
+  <rect x="546" y="184" width="88" height="32" class="chip" />
+  <text x="590" y="204" text-anchor="middle" class="lbl">Gate</text>
+
+  <!-- Row B: 4 chips — centered, 88px each, 12px gap -->
+  <!-- total row width = 4*88 + 3*12 = 388, offset = (540-388)/2 + 120 = 196 -->
+  <rect x="196" y="224" width="88" height="32" class="chip" />
+  <text x="240" y="244" text-anchor="middle" class="lbl">Loop</text>
+
+  <rect x="296" y="224" width="88" height="32" class="chip" />
+  <text x="340" y="244" text-anchor="middle" class="lbl">Input</text>
+
+  <rect x="396" y="224" width="88" height="32" class="chip" />
+  <text x="440" y="244" text-anchor="middle" class="lbl">Output</text>
+
+  <rect x="496" y="224" width="88" height="32" class="chip" style="stroke: rgba(16,185,129,0.3);" />
+  <text x="540" y="244" text-anchor="middle" class="lbl-e">Scaffold</text>
+
+  <!-- ═══ SDK panel (right)  ═══ -->
+  <rect x="700" y="152" width="180" height="118" class="panel-e" />
+  <text x="722" y="174" class="heading-e">@nanohype/sdk</text>
+
+  <rect x="720" y="186" width="140" height="28" class="chip" />
+  <text x="790" y="204" text-anchor="middle" class="lbl-e">54 Templates</text>
+
+  <rect x="720" y="222" width="140" height="28" class="chip" />
+  <text x="790" y="240" text-anchor="middle" class="lbl-e">20 Composites</text>
+
+  <!-- arrow: SDK → Scaffold chip -->
+  <line x1="700" y1="210" x2="586" y2="236" class="line-e" />
+
+  <!-- arrows: nodes → engine -->
+  <line x1="340" y1="270" x2="340" y2="300" class="line" />
+  <line x1="440" y1="270" x2="440" y2="300" class="line" />
+
+
+  <!-- ═══════════════════════════════════════ -->
+  <!--  ROW 3 — Execution Engine  y: 290–420   -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <rect x="140" y="300" width="520" height="130" class="panel" />
+  <text x="162" y="322" class="heading">execution engine</text>
+
+  <!-- Row A -->
+  <rect x="162" y="332" width="100" height="36" class="chip" />
+  <text x="212" y="354" text-anchor="middle" class="lbl">Graph</text>
+
+  <rect x="272" y="332" width="106" height="36" class="chip" />
+  <text x="325" y="354" text-anchor="middle" class="lbl">Scheduler</text>
+
+  <rect x="388" y="332" width="100" height="36" class="chip" />
+  <text x="438" y="354" text-anchor="middle" class="lbl">Executor</text>
+
+  <rect x="498" y="332" width="140" height="36" class="chip" />
+  <text x="568" y="354" text-anchor="middle" class="lbl">SSE Streaming</text>
+
+  <!-- Row B -->
+  <rect x="162" y="378" width="100" height="36" class="chip" />
+  <text x="212" y="400" text-anchor="middle" class="lbl">Context</text>
+
+  <rect x="272" y="378" width="106" height="36" class="chip" />
+  <text x="325" y="394" text-anchor="middle" class="lbl">Sandbox</text>
+  <text x="325" y="408" text-anchor="middle" class="sub">QuickJS WASM</text>
+
+  <rect x="388" y="378" width="100" height="36" class="chip" />
+  <text x="438" y="394" text-anchor="middle" class="lbl">Validation</text>
+  <text x="438" y="408" text-anchor="middle" class="sub">Zod schemas</text>
+
+  <rect x="498" y="378" width="140" height="36" class="chip" />
+  <text x="568" y="394" text-anchor="middle" class="lbl">Retry + Timeout</text>
+  <text x="568" y="408" text-anchor="middle" class="sub">exponential backoff</text>
+
+
+  <!-- ═══════════════════════════════════════ -->
+  <!--  ROW 4 — Bottom panels    y: 450–560    -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- arrows: engine → bottom panels -->
+  <line x1="260" y1="430" x2="170" y2="460" class="line" />
+  <line x1="438" y1="430" x2="438" y2="460" class="line-a" />
+  <line x1="568" y1="430" x2="680" y2="460" class="line-e" />
+
+  <!-- ─── Data Layer ─── -->
+  <rect x="40" y="460" width="240" height="110" class="panel" />
+  <text x="62" y="482" class="heading">data layer</text>
+
+  <rect x="58" y="494" width="100" height="32" class="chip" />
+  <text x="108" y="514" text-anchor="middle" class="lbl">PostgreSQL</text>
+
+  <rect x="166" y="494" width="96" height="32" class="chip" />
+  <text x="214" y="514" text-anchor="middle" class="lbl">NextAuth v5</text>
+
+  <rect x="58" y="534" width="204" height="26" class="chip" />
+  <text x="160" y="551" text-anchor="middle" class="sub">Drizzle ORM · pgSchema('workshop')</text>
+
+  <!-- ─── Provider ─── -->
+  <rect x="320" y="460" width="240" height="64" class="panel-a" />
+  <text x="342" y="482" class="heading-a">provider</text>
+
+  <rect x="340" y="492" width="200" height="24" class="chip" />
+  <text x="440" y="508" text-anchor="middle" class="lbl-a">Claude Code CLI</text>
+
+  <!-- ─── Workspace ─── -->
+  <rect x="600" y="460" width="280" height="110" class="panel-e" />
+  <text x="622" y="482" class="heading-e">workspace</text>
+
+  <rect x="618" y="494" width="120" height="32" class="chip" />
+  <text x="678" y="514" text-anchor="middle" class="lbl">Scaffolded Files</text>
+
+  <rect x="746" y="494" width="116" height="32" class="chip" />
+  <text x="804" y="514" text-anchor="middle" class="lbl">Agent Output</text>
+
+  <rect x="618" y="534" width="244" height="26" class="chip" />
+  <text x="740" y="551" text-anchor="middle" class="sub">Post-scaffold hooks · npm install, git init</text>
+
+
+  <!-- ── Stack footer ── -->
+  <text x="460" y="616" text-anchor="middle" class="dim">Next.js 16  ·  TypeScript 5  ·  Tailwind v4  ·  shadcn/ui  ·  Zustand 5  ·  React Flow v12  ·  @nanohype/sdk</text>
+</svg>

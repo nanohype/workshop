@@ -1,0 +1,146 @@
+version: "3"
+
+vars:
+  DOCKER_COMPOSE: docker compose
+
+tasks:
+  # ── Setup ──────────────────────────────────────────────────
+  setup:
+    desc: First-time project setup (install deps, copy env, start DB, migrate)
+    cmds:
+      - task: install
+      - task: env
+      - task: infra:up
+      - sleep 3
+      - task: db:push
+
+  install:
+    desc: Install pnpm dependencies
+    sources:
+      - package.json
+      - pnpm-lock.yaml
+    cmds:
+      - pnpm install
+
+  env:
+    desc: Copy .env.example → .env (won't overwrite)
+    status:
+      - test -f .env
+    cmds:
+      - cp .env.example .env
+      - echo "Created .env — fill in your secrets"
+
+  # ── Development ────────────────────────────────────────────
+  dev:
+    desc: Start Next.js dev server
+    deps: [install]
+    cmds:
+      - pnpm dev
+
+  build:
+    desc: Production build
+    deps: [install]
+    cmds:
+      - pnpm build
+
+  start:
+    desc: Start production server (requires build first)
+    cmds:
+      - pnpm start
+
+  lint:
+    desc: Run ESLint
+    cmds:
+      - pnpm lint
+
+  # ── Testing ────────────────────────────────────────────────
+  test:
+    desc: Run tests once
+    cmds:
+      - pnpm test
+
+  test:watch:
+    desc: Run tests in watch mode
+    cmds:
+      - pnpm test:watch
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - pnpm test:coverage
+
+  # ── Database ───────────────────────────────────────────────
+  db:push:
+    desc: Push schema directly to database (dev only)
+    cmds:
+      - pnpm db:push
+
+  db:generate:
+    desc: Generate Drizzle migration files from schema changes
+    cmds:
+      - pnpm db:generate
+
+  db:migrate:
+    desc: Run pending database migrations
+    cmds:
+      - pnpm db:migrate
+
+  db:studio:
+    desc: Open Drizzle Studio (database browser)
+    cmds:
+      - pnpm db:studio
+
+  # ── Infrastructure ─────────────────────────────────────────
+  infra:up:
+    desc: Start PostgreSQL container
+    cmds:
+      - "{{.DOCKER_COMPOSE}} up -d"
+
+  infra:down:
+    desc: Stop infrastructure containers
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down"
+
+  infra:destroy:
+    desc: Stop containers and delete volumes (destructive!)
+    prompt: This will delete all database data. Continue?
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down -v"
+
+  # ── Docker (app) ───────────────────────────────────────────
+  docker:build:
+    desc: Build the Workshop Docker image
+    cmds:
+      - docker build -t workshop:latest .
+
+  docker:run:
+    desc: Run the Workshop Docker image locally
+    cmds:
+      - docker run --rm -p 3000:3000 --env-file .env --network host workshop:latest
+
+  # ── Helpers ────────────────────────────────────────────────
+  gen:secret:
+    desc: Generate a random base64 secret (for AUTH_SECRET)
+    cmds:
+      - openssl rand -base64 32
+
+  clean:
+    desc: Remove build artifacts and caches
+    cmds:
+      - rm -rf .next
+      - rm -rf node_modules/.cache
+
+  # ── Composite ──────────────────────────────────────────────
+  ci:
+    desc: Run the full CI pipeline locally (lint + test + build)
+    cmds:
+      - task: lint
+      - task: test
+      - task: build
+
+  up:
+    desc: Start everything for local dev (infra + dev server)
+    cmds:
+      - task: infra:up
+      - sleep 2
+      - task: dev

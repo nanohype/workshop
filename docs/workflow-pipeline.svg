@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 460" width="920" height="460">
+  <style>
+    text { font-family: 'Geist', system-ui, -apple-system, sans-serif; }
+    .mono { font-family: 'Geist Mono', ui-monospace, monospace; }
+    .title { font-size: 11px; fill: #71717A; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+    .lbl { font-size: 11px; fill: #E4E4E7; font-weight: 500; }
+    .lbl-a { font-size: 11px; fill: #818CF8; font-weight: 500; }
+    .lbl-e { font-size: 11px; fill: #34D399; font-weight: 500; }
+    .sub { font-size: 9px; fill: #71717A; }
+    .dim { font-size: 9px; fill: #52525A; }
+    .tag-true { font-size: 9px; fill: #34D399; font-weight: 500; }
+    .tag-false { font-size: 9px; fill: #FBBF24; font-weight: 500; }
+    .node { fill: #18181B; stroke: #27272A; stroke-width: 1; rx: 6; }
+    .bar-cyan { fill: #06b6d4; }
+    .bar-emerald { fill: #10b981; }
+    .bar-indigo { fill: #6366f1; }
+    .bar-amber { fill: #f59e0b; }
+    .bar-blue { fill: #3B82F6; }
+    .arrow { fill: none; stroke: #3F3F46; stroke-width: 1.5; marker-end: url(#tip); }
+    .arrow-back { fill: none; stroke: #3F3F46; stroke-width: 1; stroke-dasharray: 5 4; marker-end: url(#tip); }
+    .sep { stroke: #1E1E22; stroke-width: 1; }
+  </style>
+  <defs>
+    <marker id="tip" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <path d="M0,0 L6,2.5 L0,5 Z" fill="#3F3F46" />
+    </marker>
+  </defs>
+
+  <rect width="920" height="460" fill="#09090B" rx="6" />
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  PIPELINE 1: Scaffold → Review → Iterate        -->
+  <!--  6 nodes, uniform 104px wide, 40px tall          -->
+  <!--  total: 6*104 + 5*30 = 774, center: (920-774)/2 = 73 -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <text x="460" y="30" text-anchor="middle" class="mono title" style="letter-spacing:0.14em">scaffold → review → iterate</text>
+  <text x="460" y="48" text-anchor="middle" class="dim">scaffold a nanohype template, review with an agent, loop until the code passes</text>
+
+  <!-- Input -->
+  <rect x="140" y="74" width="104" height="40" class="node" />
+  <rect x="140" y="74" width="104" height="3" class="bar-cyan" rx="6" />
+  <text x="192" y="99" text-anchor="middle" class="lbl">Input</text>
+  <text x="192" y="126" text-anchor="middle" class="sub">project name</text>
+
+  <line x1="244" y1="94" x2="274" y2="94" class="arrow" />
+
+  <!-- Scaffold -->
+  <rect x="274" y="74" width="104" height="40" class="node" />
+  <rect x="274" y="74" width="104" height="3" class="bar-emerald" rx="6" />
+  <text x="326" y="99" text-anchor="middle" class="lbl-e">Scaffold</text>
+  <text x="326" y="126" text-anchor="middle" class="sub">agentic-loop</text>
+  <text x="326" y="138" text-anchor="middle" class="dim">files + hooks</text>
+
+  <line x1="378" y1="94" x2="408" y2="94" class="arrow" />
+
+  <!-- Agent -->
+  <rect x="408" y="74" width="104" height="40" class="node" />
+  <rect x="408" y="74" width="104" height="3" class="bar-indigo" rx="6" />
+  <text x="460" y="99" text-anchor="middle" class="lbl-a">Agent</text>
+  <text x="460" y="126" text-anchor="middle" class="sub">code review</text>
+  <text x="460" y="138" text-anchor="middle" class="dim">scaffold context injected</text>
+
+  <line x1="512" y1="94" x2="542" y2="94" class="arrow" />
+
+  <!-- Condition -->
+  <rect x="542" y="74" width="104" height="40" class="node" />
+  <rect x="542" y="74" width="104" height="3" class="bar-amber" rx="6" />
+  <text x="594" y="99" text-anchor="middle" class="lbl">Condition</text>
+  <text x="594" y="126" text-anchor="middle" class="sub">passes review?</text>
+
+  <!-- True → Output -->
+  <line x1="646" y1="88" x2="676" y2="88" class="arrow" />
+  <text x="661" y="82" text-anchor="middle" class="tag-true">true</text>
+
+  <!-- Output -->
+  <rect x="676" y="74" width="104" height="40" class="node" />
+  <rect x="676" y="74" width="104" height="3" class="bar-blue" rx="6" />
+  <text x="728" y="99" text-anchor="middle" class="lbl">Output</text>
+
+  <!-- False → loop back to Agent -->
+  <path d="M 594 114 L 594 160 L 460 160 L 460 114" class="arrow-back" />
+  <text x="594" y="132" text-anchor="middle" class="tag-false">false</text>
+  <text x="527" y="176" text-anchor="middle" class="dim">loop — agent refines until condition passes</text>
+
+  <!-- ═══ Divider ═══ -->
+  <line x1="80" y1="206" x2="840" y2="206" class="sep" />
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  PIPELINE 2: Composite → Parallel Branches      -->
+  <!--  uniform 104px wide nodes                        -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <text x="460" y="236" text-anchor="middle" class="mono title" style="letter-spacing:0.14em">composite → parallel scaffold</text>
+  <text x="460" y="254" text-anchor="middle" class="dim">auto-generated from proof-of-concept.yaml — root + nested sub-template in parallel</text>
+
+  <!-- Input -->
+  <rect x="40" y="282" width="104" height="40" class="node" />
+  <rect x="40" y="282" width="104" height="3" class="bar-cyan" rx="6" />
+  <text x="92" y="307" text-anchor="middle" class="lbl">Input</text>
+  <text x="92" y="334" text-anchor="middle" class="sub">ProjectName</text>
+
+  <line x1="144" y1="302" x2="174" y2="302" class="arrow" />
+
+  <!-- Root Scaffold -->
+  <rect x="174" y="282" width="104" height="40" class="node" />
+  <rect x="174" y="282" width="104" height="3" class="bar-emerald" rx="6" />
+  <text x="226" y="307" text-anchor="middle" class="lbl-e">Scaffold</text>
+  <text x="226" y="334" text-anchor="middle" class="sub">agentic-loop → /</text>
+
+  <!-- Branch top: root review -->
+  <path d="M 278 294 L 310 294 L 310 292 L 332 292" class="arrow" />
+
+  <!-- Branch bottom: sub-scaffold -->
+  <path d="M 278 312 L 310 312 L 310 372 L 332 372" class="arrow" />
+
+  <!-- Root Review -->
+  <rect x="332" y="272" width="104" height="40" class="node" />
+  <rect x="332" y="272" width="104" height="3" class="bar-indigo" rx="6" />
+  <text x="384" y="297" text-anchor="middle" class="lbl-a">Review</text>
+  <text x="384" y="324" text-anchor="middle" class="sub">root code</text>
+
+  <!-- Sub-scaffold -->
+  <rect x="332" y="352" width="104" height="40" class="node" />
+  <rect x="332" y="352" width="104" height="3" class="bar-emerald" rx="6" />
+  <text x="384" y="377" text-anchor="middle" class="lbl-e">Scaffold</text>
+  <text x="384" y="404" text-anchor="middle" class="sub">eval-harness → evals/</text>
+
+  <!-- Sub-review -->
+  <line x1="436" y1="372" x2="466" y2="372" class="arrow" />
+  <rect x="466" y="352" width="104" height="40" class="node" />
+  <rect x="466" y="352" width="104" height="3" class="bar-indigo" rx="6" />
+  <text x="518" y="377" text-anchor="middle" class="lbl-a">Review</text>
+  <text x="518" y="404" text-anchor="middle" class="sub">evals/ code</text>
+
+  <!-- Merge to Integration -->
+  <path d="M 436 292 L 620 292 L 620 322 L 640 322" class="arrow" />
+  <path d="M 570 372 L 620 372 L 620 336 L 640 336" class="arrow" />
+
+  <!-- Integration -->
+  <rect x="640" y="312" width="104" height="40" class="node" />
+  <rect x="640" y="312" width="104" height="3" class="bar-indigo" rx="6" />
+  <text x="692" y="337" text-anchor="middle" class="lbl-a">Integration</text>
+  <text x="692" y="364" text-anchor="middle" class="sub">cross-module check</text>
+
+  <!-- Output -->
+  <line x1="744" y1="332" x2="774" y2="332" class="arrow" />
+  <rect x="774" y="312" width="104" height="40" class="node" />
+  <rect x="774" y="312" width="104" height="3" class="bar-blue" rx="6" />
+  <text x="826" y="337" text-anchor="middle" class="lbl">Output</text>
+</svg>
