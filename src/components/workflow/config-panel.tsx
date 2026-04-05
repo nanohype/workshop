@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useWorkflowStore } from '@/lib/store/workflow-store';
 import { TemplateBrowser } from '@/components/nanohype/template-browser';
+import { PROVIDERS } from '@/lib/providers';
 
 export function ConfigPanel() {
   const { selectedNodeId, nodes, edges, updateNode, selectNode, removeNode } = useWorkflowStore();
@@ -56,10 +57,28 @@ export function ConfigPanel() {
           )}
         </div>
 
-        {/* Claude Code agent config */}
+        {/* Agent config */}
         {node.type === 'agent' && (
           <>
             <Separator />
+
+            {/* Provider */}
+            <div className="space-y-2">
+              <Label>Provider</Label>
+              <Select
+                value={node.data.provider || 'claude-code'}
+                onValueChange={(value) => updateNode(node.id, { provider: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROVIDERS.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* System Prompt */}
             <div className="space-y-2">

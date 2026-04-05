@@ -25,6 +25,8 @@ export interface WorkflowNode {
     maxTurns?: number;
     workspace?: 'off' | 'safe' | 'full';
     permissionMode?: 'default' | 'accept-edits' | 'full';
+    // Agent provider
+    provider?: string;
     // Router
     routes?: RouteDefinition[];
     // Transform

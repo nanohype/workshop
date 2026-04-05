@@ -1,20 +1,18 @@
 import { Graph } from './graph';
 import { Scheduler } from './scheduler';
 import { RunContext } from './context';
-import { ClaudeCodeProvider } from '../providers/claude-code';
+import { getProvider } from '../providers';
 import type { WorkflowNode, RunState, ExecutionEvent } from './types';
 import { readdirSync, statSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { join, relative, resolve } from 'path';
-import { scaffoldTemplate } from '../nanohype/catalog';
+import { scaffoldTemplate, renderBrief, fetchTemplateKind } from '../nanohype/catalog';
 
 export interface ExecutorOptions {
   variables?: Record<string, string>;
   workspacePath?: string;
   onEvent?: (event: ExecutionEvent) => void;
 }
-
-const claudeCode = new ClaudeCodeProvider();
 
 export class Executor {
   private graph: Graph;
@@ -273,20 +271,20 @@ export class Executor {
 
     const systemPrompt = node.data.systemPrompt;
 
+    const provider = getProvider(node.data.provider || 'claude-code');
+
     let fullOutput = '';
-    const stream = claudeCode.stream(
+    const stream = provider.stream(
       [
         ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
         { role: 'user' as const, content: previousOutputs || (this.context.get('input') as string) || 'Begin' },
       ],
       {
-        model: 'claude-code',
         workspacePath: workspaceEnabled ? this.workspacePath : undefined,
         workspace: workspaceMode,
         maxTurns: node.data.maxTurns,
         signal,
       },
-      ''
     );
 
     try {
@@ -496,19 +494,7 @@ export class Executor {
     const templateName = node.data.templateName;
     if (!templateName) throw new Error('Scaffold node must have a template name');
 
-    // Ensure workspace exists
-    if (!this.workspacePath) throw new Error('Scaffold node requires a workspace path');
-    mkdirSync(this.workspacePath, { recursive: true });
-
-    // Validate outputSubdir doesn't escape workspace
-    if (node.data.outputSubdir) {
-      const target = resolve(this.workspacePath, node.data.outputSubdir);
-      if (!target.startsWith(this.workspacePath + '/') && target !== this.workspacePath) {
-        throw new Error(`outputSubdir escapes workspace: ${node.data.outputSubdir}`);
-      }
-    }
-
-    // Resolve variable bindings from context (same pattern as transform node)
+    // Resolve variable bindings (shared between template and brief modes)
     const staticVars = node.data.templateVariables || {};
     const bindings = node.data.templateVariableBindings || {};
     const resolvedVars: Record<string, string | boolean | number> = { ...staticVars };
@@ -522,6 +508,41 @@ export class Executor {
         return '';
       });
       resolvedVars[varName] = resolved;
+    }
+
+    // Check template kind — briefs render text, templates scaffold files
+    const kind = await fetchTemplateKind(templateName);
+
+    if (kind === 'brief') {
+      const result = await renderBrief(templateName, resolvedVars);
+      const output = JSON.stringify({
+        kind: 'brief',
+        template: result.templateName,
+        displayName: result.templateDisplayName,
+        content: result.content,
+        warnings: result.warnings,
+      });
+      this.context.setNodeOutput(node.id, output);
+      this.context.emit({
+        type: 'node-output',
+        nodeId: node.id,
+        data: { chunk: result.content },
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Standard template scaffolding
+    // Ensure workspace exists
+    if (!this.workspacePath) throw new Error('Scaffold node requires a workspace path');
+    mkdirSync(this.workspacePath, { recursive: true });
+
+    // Validate outputSubdir doesn't escape workspace
+    if (node.data.outputSubdir) {
+      const target = resolve(this.workspacePath, node.data.outputSubdir);
+      if (!target.startsWith(this.workspacePath + '/') && target !== this.workspacePath) {
+        throw new Error(`outputSubdir escapes workspace: ${node.data.outputSubdir}`);
+      }
     }
 
     const result = await scaffoldTemplate(

@@ -9,13 +9,22 @@ interface AgentNodeData {
   label: string;
   systemPrompt?: string;
   permissionMode?: string;
+  provider?: string;
   isRunning?: boolean;
   isCompleted?: boolean;
   isFailed?: boolean;
   [key: string]: unknown;
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  'gemini-cli': 'Gemini CLI',
+  'codex': 'Codex',
+};
+
 function AgentNode({ data, selected }: NodeProps & { data: AgentNodeData }) {
+  const providerLabel = PROVIDER_LABELS[data.provider || 'claude-code'] || data.provider || 'Claude Code';
+
   return (
     <div
       className={cn(
@@ -34,9 +43,9 @@ function AgentNode({ data, selected }: NodeProps & { data: AgentNodeData }) {
           <div className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500/15">
             <Brain className="w-3 h-3 text-indigo-400" />
           </div>
-          <p className="text-sm font-medium text-foreground">{data.label || 'Claude Code'}</p>
+          <p className="text-sm font-medium text-foreground">{data.label || providerLabel}</p>
         </div>
-        <p className="text-[11px] text-dim mt-0.5">Claude Code</p>
+        <p className="text-[11px] text-dim mt-0.5">{providerLabel}</p>
 
         {data.systemPrompt && (
           <p className="text-[11px] text-dim mt-0.5 line-clamp-2">{data.systemPrompt}</p>

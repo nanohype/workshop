@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useWorkflowStore } from '@/lib/store/workflow-store';
 
 const paletteItems = [
-  { type: 'agent', label: 'Claude Code', icon: Brain, description: 'Claude Code execution', accentColor: 'border-l-indigo-500', textColor: 'text-indigo-400', borderColor: 'border-indigo-500/20' },
+  { type: 'agent', label: 'Agent', icon: Brain, description: 'AI agent execution', accentColor: 'border-l-indigo-500', textColor: 'text-indigo-400', borderColor: 'border-indigo-500/20' },
   { type: 'condition', label: 'Condition', icon: GitBranch, description: 'True/false branching', accentColor: 'border-l-amber-500', textColor: 'text-amber-400', borderColor: 'border-amber-500/20' },
   { type: 'router', label: 'Router', icon: Network, description: 'Multi-way branching', accentColor: 'border-l-teal-500', textColor: 'text-teal-400', borderColor: 'border-teal-500/20' },
   { type: 'transform', label: 'Transform', icon: Wand2, description: 'Data shaping', accentColor: 'border-l-violet-500', textColor: 'text-violet-400', borderColor: 'border-violet-500/20' },

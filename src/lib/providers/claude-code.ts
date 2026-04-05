@@ -1,27 +1,15 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import type { AgentProvider, ProviderMessage, ProviderOptions, StreamChunk } from '../../types/provider';
+import { registerProvider } from './registry';
 
-export interface ProviderMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+export class ClaudeCodeProvider implements AgentProvider {
+  readonly id = 'claude-code';
+  readonly name = 'Claude Code';
+  readonly capabilities = ['code' as const, 'document' as const, 'analysis' as const, 'general' as const];
+  readonly color = '#6366f1';
+  readonly icon = 'terminal';
 
-export interface ProviderOptions {
-  model?: string;
-  workspacePath?: string;
-  workspace?: 'off' | 'safe' | 'full';
-  maxTurns?: number;
-  signal?: AbortSignal;
-}
-
-export interface StreamChunk {
-  type: 'text' | 'done';
-  content: string;
-  tokens?: { input: number; output: number };
-}
-
-export class ClaudeCodeProvider {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async *stream(messages: ProviderMessage[], options: ProviderOptions, _apiKey: string): AsyncGenerator<StreamChunk> {
+  async *stream(messages: ProviderMessage[], options: ProviderOptions): AsyncGenerator<StreamChunk> {
     const prompt = this.buildPrompt(messages);
     const workspaceEnabled = options.workspace && options.workspace !== 'off' && options.workspacePath;
 
@@ -55,16 +43,16 @@ export class ClaudeCodeProvider {
     proc.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
     proc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-    const closePromise = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {
+    const closePromise = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
       proc.on('close', (code, signal) => resolve({ code, signal }));
-    });
-
-    proc.on('error', (err) => {
-      cleanup();
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        throw new Error('Claude Code CLI not found. Install it with: npm install -g @anthropic-ai/claude-code');
-      }
-      throw err;
+      proc.on('error', (err) => {
+        cleanup();
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          reject(new Error('Claude Code CLI not found. Install it with: npm install -g @anthropic-ai/claude-code'));
+        } else {
+          reject(err);
+        }
+      });
     });
 
     const result = await closePromise;
@@ -145,3 +133,6 @@ export class ClaudeCodeProvider {
     };
   }
 }
+
+// Self-register
+registerProvider(new ClaudeCodeProvider());

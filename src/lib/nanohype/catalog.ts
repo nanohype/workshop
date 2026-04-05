@@ -74,6 +74,13 @@ export interface ScaffoldResult {
   templateDisplayName: string;
 }
 
+export interface BriefRenderResult {
+  content: string;
+  templateName: string;
+  templateDisplayName: string;
+  warnings: string[];
+}
+
 export async function scaffoldTemplate(
   templateName: string,
   variables: Record<string, string | boolean | number>,
@@ -104,6 +111,51 @@ export async function scaffoldTemplate(
     templateName: manifest.name,
     templateDisplayName: manifest.displayName,
   };
+}
+
+/**
+ * Render a brief template: same placeholder substitution as scaffoldTemplate,
+ * but returns concatenated text instead of writing files. Skips hooks.
+ */
+export async function renderBrief(
+  templateName: string,
+  variables: Record<string, string | boolean | number>,
+): Promise<BriefRenderResult> {
+  const source = getCatalogSource();
+  const { manifest, files } = await source.fetchTemplate(templateName);
+  const result: RenderResult = renderTemplate(manifest, files, variables);
+
+  const content = result.files
+    .map(f => f.content)
+    .join('\n\n');
+
+  return {
+    content,
+    templateName: manifest.name,
+    templateDisplayName: manifest.displayName,
+    warnings: result.warnings,
+  };
+}
+
+/**
+ * Fetch a template's kind field without rendering.
+ */
+export async function fetchTemplateKind(templateName: string): Promise<string> {
+  const source = getCatalogSource();
+  const { manifest } = await source.fetchTemplate(templateName);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const kind = (manifest as any).kind;
+  return kind === 'brief' ? 'brief' : 'template';
+}
+
+/**
+ * Fetch a template's persona field.
+ */
+export async function fetchTemplatePersona(templateName: string): Promise<string[]> {
+  const source = getCatalogSource();
+  const { manifest } = await source.fetchTemplate(templateName);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (manifest as any).persona || ['engineering'];
 }
 
 export async function scaffoldComposite(

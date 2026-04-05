@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Blocks, Package, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Blocks, Package, Tag, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,9 @@ interface CatalogEntry {
   displayName: string;
   description: string;
   version: string;
+  kind?: string;
+  persona?: string[];
+  category?: string;
   tags: string[];
 }
 
@@ -47,6 +50,8 @@ export function TemplateBrowser({ onSelectTemplate, onSelectComposite, mode = 'a
   const [composites, setComposites] = useState<CompositeCatalogEntry[]>([]);
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [expandedManifest, setExpandedManifest] = useState<TemplateManifest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,9 +86,23 @@ export function TemplateBrowser({ onSelectTemplate, onSelectComposite, mode = 'a
     return [...tags].sort();
   }, [templates, composites]);
 
+  const allPersonas = useMemo(() => {
+    const personas = new Set<string>();
+    for (const t of templates) (t.persona || ['engineering']).forEach(p => personas.add(p));
+    return [...personas].sort();
+  }, [templates]);
+
+  const allCategories = useMemo(() => {
+    const categories = new Set<string>();
+    for (const t of templates) if (t.category) categories.add(t.category);
+    return [...categories].sort();
+  }, [templates]);
+
   const filteredTemplates = useMemo(() => {
     return templates.filter(t => {
       if (selectedTag && !t.tags.includes(selectedTag)) return false;
+      if (selectedPersona && !(t.persona || ['engineering']).includes(selectedPersona)) return false;
+      if (selectedCategory && t.category !== selectedCategory) return false;
       if (!search) return true;
       const q = search.toLowerCase();
       return t.displayName.toLowerCase().includes(q)
@@ -91,7 +110,7 @@ export function TemplateBrowser({ onSelectTemplate, onSelectComposite, mode = 'a
         || t.name.includes(q)
         || t.tags.some(tag => tag.includes(q));
     });
-  }, [templates, search, selectedTag]);
+  }, [templates, search, selectedTag, selectedPersona, selectedCategory]);
 
   const filteredComposites = useMemo(() => {
     return composites.filter(c => {
@@ -146,6 +165,50 @@ export function TemplateBrowser({ onSelectTemplate, onSelectComposite, mode = 'a
         </div>
       </div>
 
+      {/* Persona filter */}
+      {allPersonas.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {allPersonas.map(persona => (
+            <button
+              key={persona}
+              onClick={() => { setSelectedPersona(persona === selectedPersona ? null : persona); setSelectedCategory(null); }}
+              className={cn(
+                'text-[10px] px-2 py-0.5 rounded-full border transition-colors capitalize',
+                persona === selectedPersona
+                  ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
+                  : 'bg-input text-dim border-border hover:text-foreground'
+              )}
+            >
+              <User className="inline h-2.5 w-2.5 mr-0.5" />{persona.replace('-', ' ')}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Category filter */}
+      {allCategories.length > 1 && selectedPersona && (
+        <div className="flex flex-wrap gap-1.5">
+          {allCategories
+            .filter(cat => templates.some(t =>
+              t.category === cat && (t.persona || ['engineering']).includes(selectedPersona!)
+            ))
+            .map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
+                className={cn(
+                  'text-[10px] px-2 py-0.5 rounded-full border transition-colors',
+                  cat === selectedCategory
+                    ? 'bg-accent/20 text-accent border-accent/30'
+                    : 'bg-input text-dim border-border hover:text-foreground'
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+        </div>
+      )}
+
       {/* Tags */}
       {allTags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -192,8 +255,18 @@ export function TemplateBrowser({ onSelectTemplate, onSelectComposite, mode = 'a
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-foreground truncate">{t.displayName}</p>
                       <span className="text-[10px] text-dim font-mono">v{t.version}</span>
+                      {t.kind === 'brief' && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400">brief</span>
+                      )}
                     </div>
-                    <p className="text-xs text-dim truncate">{t.description}</p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-dim truncate flex-1">{t.description}</p>
+                      {(t.persona || ['engineering']).map(p => (
+                        <span key={p} className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 shrink-0 capitalize">
+                          {p.replace('-', ' ')}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   {expandedTemplate === t.name ? (
                     <ChevronUp className="h-3.5 w-3.5 text-dim shrink-0" />
