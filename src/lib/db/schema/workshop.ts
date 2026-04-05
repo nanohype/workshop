@@ -31,7 +31,9 @@ export const runs = workshopSchema.table('runs', {
   context: jsonb('context').default({}),
   nodeStates: jsonb('node_states').default({}),
   tokenUsage: jsonb('token_usage').default({ input: 0, output: 0, cost: 0 }),
+  checkpoint: jsonb('checkpoint'),
   startedAt: timestamp('started_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
 }, (table) => [
   index('idx_runs_user').on(table.userId),

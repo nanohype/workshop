@@ -14,7 +14,7 @@ Visual workflow builder for nanohype templates. Part of the nanohype ecosystem.
 
 ## Key Architecture
 - Graph execution engine: topological sort → BFS walk → parallel branches
-- 9 node types: agent, condition, router, transform, gate, loop, input, output, scaffold
+- Node types: agent, condition, router, transform, gate, loop, input, output, scaffold, git-commit, github-pr, github-issue, github-checks, validate
 - SSE streaming for live run monitoring with AbortController cleanup
 - Dark-first UI with Electric indigo (#6366f1) primary
 - Gate nodes for human-in-the-loop approval (polls DB, 1hr timeout)

@@ -117,6 +117,9 @@ export class Graph {
       if (node.type === 'condition' && !node.data.condition) {
         errors.push(`Condition node "${node.data.label}" must have a condition expression`);
       }
+      if (node.type === 'git-commit' && !node.data.commitMessage && !node.data.commitTemplate) {
+        errors.push(`Git commit node "${node.data.label}" must have a commit message or template`);
+      }
     }
 
     return { valid: errors.length === 0, errors };

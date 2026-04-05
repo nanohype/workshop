@@ -12,9 +12,19 @@
  *
  * Layout: Input → root scaffold/agent → persona-grouped parallel branches → integration → Output
  */
-import type { WorkflowNode, WorkflowEdge } from '../engine/types';
+import type { WorkflowNode, WorkflowEdge, ValidationStep } from '../engine/types';
 import type { CompositeManifest } from '@nanohype/sdk';
 import { resolveVariables } from '@nanohype/sdk';
+
+// Extended composite entry with optional validation config
+interface ExtendedCompositeEntry {
+  template: string;
+  path?: string;
+  root?: boolean;
+  variables?: Record<string, string | boolean | number>;
+  condition?: string;
+  validation?: ValidationStep[];
+}
 
 interface GeneratedWorkflow {
   nodes: WorkflowNode[];
@@ -87,7 +97,7 @@ export function compositeToWorkflow(
 ): GeneratedWorkflow {
   const resolved = resolveVariables(manifest.variables, values);
 
-  const activeEntries = manifest.templates.filter(entry => {
+  const activeEntries = (manifest.templates as ExtendedCompositeEntry[]).filter(entry => {
     if (!entry.condition) return true;
     return resolved[entry.condition] === 'true';
   });
@@ -139,11 +149,10 @@ export function compositeToWorkflow(
     return entryVars;
   }
 
-  // Helper: create scaffold + agent pair
-  function createPair(entry: typeof activeEntries[0], x: number, y: number, connectFrom: string[]): { lastId: string; endY: number } {
+  // Helper: create scaffold + optional validate + agent chain
+  function createPair(entry: ExtendedCompositeEntry, x: number, y: number, connectFrom: string[]): { lastId: string; endY: number } {
     const n = nextNodeSuffix();
     const scaffoldId = `scaffold-${entry.template}-${n}`;
-    const agentId = `agent-${isBriefTemplate(entry.template) ? 'exec' : 'review'}-${entry.template}-${n}`;
     const persona = inferPersona(entry.template);
     const isBrief = isBriefTemplate(entry.template);
     const entryVars = resolveEntryVars(entry);
@@ -165,7 +174,29 @@ export function compositeToWorkflow(
       edges.push({ id: nextEdgeId(), source: prevId, target: scaffoldId });
     }
 
+    let agentConnectFrom = scaffoldId;
+    let agentY = y + yGap;
+
+    // Insert validate node between scaffold and agent when template has validation
+    if (entry.validation && entry.validation.length > 0 && !isBrief) {
+      const validateId = `validate-${entry.template}-${n}`;
+      nodes.push({
+        id: validateId,
+        type: 'validate',
+        position: { x, y: y + yGap },
+        data: {
+          label: `Validate: ${entry.template}`,
+          validationSteps: entry.validation,
+          templateDerived: true,
+        },
+      });
+      edges.push({ id: nextEdgeId(), source: scaffoldId, target: validateId });
+      agentConnectFrom = validateId;
+      agentY = y + yGap * 2;
+    }
+
     // Agent node — execution for briefs, review for templates
+    const agentId = `agent-${isBrief ? 'exec' : 'review'}-${entry.template}-${n}`;
     const agentData: WorkflowNode['data'] = isBrief
       ? {
           label: `Execute: ${entry.template}`,
@@ -185,12 +216,12 @@ export function compositeToWorkflow(
     nodes.push({
       id: agentId,
       type: 'agent',
-      position: { x, y: y + yGap },
+      position: { x, y: agentY },
       data: agentData,
     });
-    edges.push({ id: nextEdgeId(), source: scaffoldId, target: agentId });
+    edges.push({ id: nextEdgeId(), source: agentConnectFrom, target: agentId });
 
-    return { lastId: agentId, endY: y + yGap };
+    return { lastId: agentId, endY: agentY };
   }
 
   // 2. Root entries (sequential)

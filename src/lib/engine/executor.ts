@@ -2,16 +2,19 @@ import { Graph } from './graph';
 import { Scheduler } from './scheduler';
 import { RunContext } from './context';
 import { getProvider } from '../providers';
-import type { WorkflowNode, RunState, ExecutionEvent } from './types';
+import type { WorkflowNode, RunState, RunCheckpoint, ExecutionEvent } from './types';
 import { readdirSync, statSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { join, relative, resolve } from 'path';
 import { scaffoldTemplate, renderBrief, fetchTemplateKind } from '../nanohype/catalog';
+import { runValidationStep } from '../validation/runner';
 
 export interface ExecutorOptions {
   variables?: Record<string, string>;
   workspacePath?: string;
   onEvent?: (event: ExecutionEvent) => void;
+  onCheckpoint?: (checkpoint: RunCheckpoint) => void | Promise<void>;
+  checkpoint?: RunCheckpoint;
 }
 
 export class Executor {
@@ -20,6 +23,8 @@ export class Executor {
   private context: RunContext;
   private workspacePath?: string;
   private aborted = false;
+  private paused = false;
+  private onCheckpoint?: (checkpoint: RunCheckpoint) => void | Promise<void>;
 
   constructor(
     nodes: WorkflowNode[],
@@ -30,9 +35,19 @@ export class Executor {
     this.scheduler = new Scheduler(this.graph);
     this.context = new RunContext(options.variables || {});
     this.workspacePath = options.workspacePath;
+    this.onCheckpoint = options.onCheckpoint;
 
     if (options.onEvent) {
       this.context.onEvent(options.onEvent);
+    }
+
+    // Warm start from checkpoint
+    if (options.checkpoint) {
+      this.context.restoreNodeStates(options.checkpoint.nodeStates);
+      for (const [key, value] of Object.entries(options.checkpoint.contextData)) {
+        this.context.set(key, value);
+      }
+      this.scheduler.restoreCompleted(options.checkpoint.completedNodes);
     }
   }
 
@@ -46,7 +61,7 @@ export class Executor {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
-    while (!this.scheduler.isComplete() && !this.aborted) {
+    while (!this.scheduler.isComplete() && !this.aborted && !this.paused) {
       const batch = this.scheduler.getNextBatch(this.context);
       if (!batch) break;
 
@@ -68,13 +83,26 @@ export class Executor {
         }
         this.scheduler.markCompleted(nodeId);
       }
+
+      // Checkpoint after each batch
+      if (this.onCheckpoint) {
+        const checkpoint: RunCheckpoint = {
+          completedNodes: this.scheduler.getCompleted(),
+          nodeStates: this.context.getAllNodeStates(),
+          contextData: this.context.serialize(),
+          timestamp: new Date(),
+        };
+        await this.onCheckpoint(checkpoint);
+      }
     }
 
-    const status = this.aborted
-      ? 'cancelled' as const
-      : Object.values(this.context.getAllNodeStates()).some(s => s.status === 'failed')
-        ? 'failed' as const
-        : 'completed' as const;
+    const status = this.paused
+      ? 'paused' as const
+      : this.aborted
+        ? 'cancelled' as const
+        : Object.values(this.context.getAllNodeStates()).some(s => s.status === 'failed')
+          ? 'failed' as const
+          : 'completed' as const;
 
     const cost = this.estimateCost(totalInputTokens, totalOutputTokens);
 
@@ -106,6 +134,10 @@ export class Executor {
     this.aborted = true;
   }
 
+  pause(): void {
+    this.paused = true;
+  }
+
   getState(): { nodeStates: Record<string, unknown>; totalTokens: { input: number; output: number; cost: number } } {
     const nodeStates = this.context.getAllNodeStates();
     let input = 0, output = 0;
@@ -124,6 +156,12 @@ export class Executor {
 
     this.context.setNodeState(nodeId, { status: 'running', startedAt: new Date() });
     this.context.emit({ type: 'node-start', nodeId, data: { label: node.data.label }, timestamp: new Date() });
+
+    // Declare workspace intent for conflict tracking
+    const intentPaths = this.getNodeIntentPaths(node);
+    if (intentPaths.length > 0) {
+      this.context.declareIntent(nodeId, intentPaths);
+    }
 
     try {
       const predecessors = this.graph.getPredecessors(nodeId);
@@ -183,6 +221,8 @@ export class Executor {
         completedAt: new Date(),
       });
       this.context.emit({ type: 'node-error', nodeId, data: { error: errorMessage }, timestamp: new Date() });
+    } finally {
+      this.context.releaseIntent(nodeId);
     }
   }
 
@@ -215,6 +255,34 @@ export class Executor {
       case 'scaffold':
         await this.executeScaffoldNode(node);
         break;
+      case 'git-commit':
+        await this.executeGitCommitNode(node);
+        break;
+      case 'github-pr':
+        await this.executeGithubPrNode(node);
+        break;
+      case 'github-issue':
+        await this.executeGithubIssueNode(node);
+        break;
+      case 'github-checks':
+        await this.executeGithubChecksNode(node);
+        break;
+      case 'validate':
+        await this.executeValidateNode(node);
+        break;
+    }
+  }
+
+  private getNodeIntentPaths(node: WorkflowNode): string[] {
+    switch (node.type) {
+      case 'scaffold':
+        return node.data.outputSubdir ? [node.data.outputSubdir] : [];
+      case 'agent':
+        return node.data.workspace && node.data.workspace !== 'off' ? ['.'] : [];
+      case 'git-commit':
+        return node.data.paths && node.data.paths.length > 0 ? node.data.paths : ['.'];
+      default:
+        return [];
     }
   }
 
@@ -395,22 +463,20 @@ export class Executor {
     }
   }
 
-  private async executeTransformNode(node: WorkflowNode): Promise<void> {
-    const template = node.data.template;
-    if (!template) throw new Error('Transform node must have a template');
-
-    // Interpolate {{node_X_output}} and {{variable}} patterns
-    const output = template.replace(/\{\{(\w+)\}\}/g, (_, varName) => {
-      // Check node outputs first
+  private interpolateTemplate(template: string): string {
+    return template.replace(/\{\{(\w+)\}\}/g, (_, varName) => {
       const nodeOutput = this.context.get(`node_${varName}_output`);
       if (nodeOutput !== undefined) return String(nodeOutput);
-      // Check context variables
       const contextVal = this.context.get(varName);
       if (contextVal !== undefined) return String(contextVal);
       return '';
     });
+  }
 
-    this.context.setNodeOutput(node.id, output);
+  private async executeTransformNode(node: WorkflowNode): Promise<void> {
+    const template = node.data.template;
+    if (!template) throw new Error('Transform node must have a template');
+    this.context.setNodeOutput(node.id, this.interpolateTemplate(template));
   }
 
   private async executeGateNode(node: WorkflowNode): Promise<void> {
@@ -615,6 +681,260 @@ export class Executor {
       templateVariables: resolvedVars,
     });
     this.context.setNodeOutput(node.id, output);
+  }
+
+  private async executeGitCommitNode(node: WorkflowNode): Promise<void> {
+    if (!this.workspacePath) throw new Error('Git commit node requires a workspace path');
+
+    const message = node.data.commitTemplate
+      ? this.interpolateTemplate(node.data.commitTemplate)
+      : node.data.commitMessage;
+    if (!message) throw new Error('Git commit node must have a commit message or template');
+
+    const cwd = this.workspacePath;
+
+    // Optionally create and switch to a new branch
+    if (node.data.createBranch && node.data.branch) {
+      execSync(`git checkout -b ${node.data.branch}`, { cwd, stdio: 'pipe' });
+    } else if (node.data.branch) {
+      execSync(`git checkout ${node.data.branch}`, { cwd, stdio: 'pipe' });
+    }
+
+    // Stage files
+    if (node.data.paths && node.data.paths.length > 0) {
+      for (const p of node.data.paths) {
+        execSync(`git add ${p}`, { cwd, stdio: 'pipe' });
+      }
+    } else {
+      execSync('git add -A', { cwd, stdio: 'pipe' });
+    }
+
+    // Commit
+    execSync(`git commit -m ${JSON.stringify(message)}`, { cwd, stdio: 'pipe' });
+
+    // Capture output
+    const sha = execSync('git rev-parse HEAD', { cwd, stdio: 'pipe' }).toString().trim();
+    const branch = execSync('git branch --show-current', { cwd, stdio: 'pipe' }).toString().trim();
+    let filesChanged: string[] = [];
+    try {
+      filesChanged = execSync('git diff --name-only HEAD~1', { cwd, stdio: 'pipe' })
+        .toString().trim().split('\n').filter(Boolean);
+    } catch { /* initial commit */ }
+
+    const output = JSON.stringify({ sha, branch, filesChanged, message });
+    this.context.setNodeOutput(node.id, output);
+  }
+
+  private async executeGithubPrNode(node: WorkflowNode): Promise<void> {
+    if (!this.workspacePath) throw new Error('GitHub PR node requires a workspace path');
+
+    const title = node.data.prTitleTemplate
+      ? this.interpolateTemplate(node.data.prTitleTemplate)
+      : node.data.prTitle;
+    if (!title) throw new Error('GitHub PR node must have a title or title template');
+
+    const body = node.data.prBodyTemplate
+      ? this.interpolateTemplate(node.data.prBodyTemplate)
+      : node.data.prBody || '';
+
+    const cwd = this.workspacePath;
+    const args = ['gh', 'pr', 'create', '--title', JSON.stringify(title), '--body', JSON.stringify(body)];
+    if (node.data.baseBranch) args.push('--base', node.data.baseBranch);
+    if (node.data.draft) args.push('--draft');
+
+    let stdout: string;
+    try {
+      stdout = execSync(args.join(' '), { cwd, stdio: 'pipe' }).toString().trim();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      // If PR already exists, fall back to edit
+      if (errMsg.includes('already exists')) {
+        const editArgs = ['gh', 'pr', 'edit', '--title', JSON.stringify(title), '--body', JSON.stringify(body)];
+        stdout = execSync(editArgs.join(' '), { cwd, stdio: 'pipe' }).toString().trim();
+      } else {
+        throw err;
+      }
+    }
+
+    // Parse PR URL and number from stdout
+    const urlMatch = stdout.match(/https:\/\/github\.com\/[^\s]+\/pull\/(\d+)/);
+    const prUrl = urlMatch?.[0] || stdout;
+    const prNumber = urlMatch?.[1] ? parseInt(urlMatch[1], 10) : undefined;
+
+    const output = JSON.stringify({ url: prUrl, number: prNumber, title, draft: !!node.data.draft });
+    this.context.setNodeOutput(node.id, output);
+  }
+
+  private async executeGithubIssueNode(node: WorkflowNode): Promise<void> {
+    if (!this.workspacePath) throw new Error('GitHub issue node requires a workspace path');
+
+    const cwd = this.workspacePath;
+
+    // Close mode
+    if (node.data.closeIssue && node.data.issueNumber) {
+      execSync(`gh issue close ${node.data.issueNumber}`, { cwd, stdio: 'pipe' });
+      const output = JSON.stringify({ action: 'closed', number: node.data.issueNumber });
+      this.context.setNodeOutput(node.id, output);
+      return;
+    }
+
+    // Create mode
+    const title = node.data.issueTitleTemplate
+      ? this.interpolateTemplate(node.data.issueTitleTemplate)
+      : node.data.issueTitle;
+    if (!title) throw new Error('GitHub issue node must have a title or title template');
+
+    const body = node.data.issueBodyTemplate
+      ? this.interpolateTemplate(node.data.issueBodyTemplate)
+      : node.data.issueBody || '';
+
+    const args = ['gh', 'issue', 'create', '--title', JSON.stringify(title), '--body', JSON.stringify(body)];
+    if (node.data.labels && node.data.labels.length > 0) {
+      args.push('--label', node.data.labels.join(','));
+    }
+
+    const stdout = execSync(args.join(' '), { cwd, stdio: 'pipe' }).toString().trim();
+
+    const urlMatch = stdout.match(/https:\/\/github\.com\/[^\s]+\/issues\/(\d+)/);
+    const issueUrl = urlMatch?.[0] || stdout;
+    const issueNumber = urlMatch?.[1] ? parseInt(urlMatch[1], 10) : undefined;
+
+    const output = JSON.stringify({ action: 'created', url: issueUrl, number: issueNumber, title });
+    this.context.setNodeOutput(node.id, output);
+  }
+
+  private async executeGithubChecksNode(node: WorkflowNode): Promise<void> {
+    if (!this.workspacePath) throw new Error('GitHub checks node requires a workspace path');
+
+    const cwd = this.workspacePath;
+
+    // Derive PR number: from node data, or from upstream github-pr node output
+    let prNumber: number | undefined;
+    if (node.data.prNumberSource) {
+      const sourceOutput = this.context.getNodeOutput(node.data.prNumberSource);
+      if (sourceOutput) {
+        try {
+          const parsed = JSON.parse(sourceOutput);
+          prNumber = parsed.number;
+        } catch { /* not JSON */ }
+      }
+    }
+    if (!prNumber) {
+      // Try to find an upstream github-pr node
+      const predecessors = this.graph.getPredecessors(node.id);
+      for (const predId of predecessors) {
+        const predNode = this.graph.getNode(predId);
+        if (predNode?.type === 'github-pr') {
+          const output = this.context.getNodeOutput(predId);
+          if (output) {
+            try {
+              prNumber = JSON.parse(output).number;
+            } catch { /* not JSON */ }
+          }
+          break;
+        }
+      }
+    }
+    if (!prNumber) throw new Error('GitHub checks node could not determine PR number');
+
+    const pollInterval = (node.data.pollInterval || 30) * 1000;
+    const timeout = (node.data.checksTimeout || 600) * 1000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      if (this.aborted) throw new Error('Run was cancelled');
+
+      let checksJson: string;
+      try {
+        checksJson = execSync(
+          `gh pr checks ${prNumber} --json name,state,conclusion`,
+          { cwd, stdio: 'pipe' }
+        ).toString().trim();
+      } catch {
+        // gh pr checks may fail if no checks exist yet — wait and retry
+        await new Promise(r => setTimeout(r, pollInterval));
+        continue;
+      }
+
+      const checks = JSON.parse(checksJson) as { name: string; state: string; conclusion: string }[];
+      if (checks.length === 0) {
+        await new Promise(r => setTimeout(r, pollInterval));
+        continue;
+      }
+
+      const allComplete = checks.every(c => c.state === 'COMPLETED');
+      if (!allComplete) {
+        this.context.emit({
+          type: 'node-output',
+          nodeId: node.id,
+          data: { chunk: `Waiting on checks... ${checks.filter(c => c.state !== 'COMPLETED').length} pending\n` },
+          timestamp: new Date(),
+        });
+        await new Promise(r => setTimeout(r, pollInterval));
+        continue;
+      }
+
+      const allPassed = checks.every(c => c.conclusion === 'SUCCESS' || c.conclusion === 'NEUTRAL' || c.conclusion === 'SKIPPED');
+      const failed = checks.filter(c => c.conclusion === 'FAILURE' || c.conclusion === 'CANCELLED');
+
+      const output = JSON.stringify({
+        prNumber,
+        passed: allPassed,
+        checks: checks.map(c => ({ name: c.name, conclusion: c.conclusion })),
+        failed: failed.map(c => c.name),
+      });
+      this.context.setNodeOutput(node.id, output);
+
+      if (!allPassed) {
+        throw new Error(`GitHub checks failed: ${failed.map(c => c.name).join(', ')}`);
+      }
+      return;
+    }
+
+    throw new Error(`GitHub checks timed out after ${(timeout / 1000)}s for PR #${prNumber}`);
+  }
+
+  private async executeValidateNode(node: WorkflowNode): Promise<void> {
+    if (!this.workspacePath) throw new Error('Validate node requires a workspace path');
+
+    const steps = node.data.validationSteps || [];
+    if (steps.length === 0) throw new Error('Validate node must have at least one validation step');
+
+    const results = [];
+    let allPassed = true;
+
+    for (const step of steps) {
+      this.context.emit({
+        type: 'node-output',
+        nodeId: node.id,
+        data: { chunk: `[validate] ${step.name}: ${step.command}\n` },
+        timestamp: new Date(),
+      });
+
+      const result = runValidationStep(step, this.workspacePath);
+      results.push(result);
+
+      if (!result.passed) allPassed = false;
+
+      const status = result.passed ? 'pass' : 'FAIL';
+      const parsedSummary = result.parsed
+        ? ` (${result.parsed.passed}/${result.parsed.total} passed)`
+        : '';
+      this.context.emit({
+        type: 'node-output',
+        nodeId: node.id,
+        data: { chunk: `[validate] ${step.name}: ${status}${parsedSummary} [${result.duration}ms]\n` },
+        timestamp: new Date(),
+      });
+    }
+
+    const output = JSON.stringify({ passed: allPassed, results });
+    this.context.setNodeOutput(node.id, output);
+
+    if (!allPassed) {
+      const failed = results.filter(r => !r.passed).map(r => r.name);
+      throw new Error(`Validation failed: ${failed.join(', ')}`);
+    }
   }
 
   private async executeLoopNode(node: WorkflowNode): Promise<void> {

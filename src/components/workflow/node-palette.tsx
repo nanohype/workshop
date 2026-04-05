@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Brain, GitBranch, ArrowDownToLine, ArrowUpFromLine, RotateCcw, Network, Wand2, ShieldCheck, Blocks, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Brain, GitBranch, ArrowDownToLine, ArrowUpFromLine, RotateCcw, Network, Wand2, ShieldCheck, Blocks, PanelLeftClose, PanelLeftOpen, GitCommitHorizontal, GitPullRequest, CircleDot, CheckCircle2, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkflowStore } from '@/lib/store/workflow-store';
 
@@ -15,6 +15,11 @@ const paletteItems = [
   { type: 'input', label: 'Input', icon: ArrowDownToLine, description: 'Workflow input', accentColor: 'border-l-cyan-500', textColor: 'text-cyan-400', borderColor: 'border-cyan-500/20' },
   { type: 'output', label: 'Output', icon: ArrowUpFromLine, description: 'Workflow output', accentColor: 'border-l-emerald-400', textColor: 'text-emerald-400', borderColor: 'border-emerald-400/20' },
   { type: 'scaffold', label: 'Scaffold', icon: Blocks, description: 'nanohype template', accentColor: 'border-l-emerald-500', textColor: 'text-emerald-500', borderColor: 'border-emerald-500/20' },
+  { type: 'git-commit', label: 'Git Commit', icon: GitCommitHorizontal, description: 'Stage and commit', accentColor: 'border-l-orange-500', textColor: 'text-orange-400', borderColor: 'border-orange-500/20' },
+  { type: 'github-pr', label: 'GitHub PR', icon: GitPullRequest, description: 'Create pull request', accentColor: 'border-l-blue-500', textColor: 'text-blue-400', borderColor: 'border-blue-500/20' },
+  { type: 'github-issue', label: 'GitHub Issue', icon: CircleDot, description: 'Create or close issue', accentColor: 'border-l-green-500', textColor: 'text-green-400', borderColor: 'border-green-500/20' },
+  { type: 'github-checks', label: 'GitHub Checks', icon: CheckCircle2, description: 'Wait for CI checks', accentColor: 'border-l-sky-500', textColor: 'text-sky-400', borderColor: 'border-sky-500/20' },
+  { type: 'validate', label: 'Validate', icon: ClipboardCheck, description: 'Run validation steps', accentColor: 'border-l-rose-500', textColor: 'text-rose-400', borderColor: 'border-rose-500/20' },
 ];
 
 export function NodePalette() {

@@ -11,7 +11,7 @@ export interface RouteDefinition {
 
 export interface WorkflowNode {
   id: string;
-  type: 'agent' | 'condition' | 'input' | 'output' | 'loop' | 'router' | 'transform' | 'gate' | 'scaffold';
+  type: 'agent' | 'condition' | 'input' | 'output' | 'loop' | 'router' | 'transform' | 'gate' | 'scaffold' | 'git-commit' | 'github-pr' | 'github-issue' | 'github-checks' | 'validate';
   position: { x: number; y: number };
   data: {
     label: string;
@@ -39,7 +39,53 @@ export interface WorkflowNode {
     templateVariableBindings?: Record<string, string>;
     outputSubdir?: string;
     runPostHooks?: boolean;
+    // Git commit
+    commitMessage?: string;
+    commitTemplate?: string;
+    branch?: string;
+    createBranch?: boolean;
+    paths?: string[];
+    // GitHub PR
+    prTitle?: string;
+    prTitleTemplate?: string;
+    prBody?: string;
+    prBodyTemplate?: string;
+    baseBranch?: string;
+    draft?: boolean;
+    // GitHub issue
+    issueTitle?: string;
+    issueTitleTemplate?: string;
+    issueBody?: string;
+    issueBodyTemplate?: string;
+    labels?: string[];
+    closeIssue?: boolean;
+    issueNumber?: number;
+    // GitHub checks
+    prNumberSource?: string;
+    pollInterval?: number;
+    checksTimeout?: number;
+    // Validate
+    validationSteps?: ValidationStep[];
+    templateDerived?: boolean;
   };
+}
+
+export interface ValidationStep {
+  name: string;
+  command: string;
+  expect?: 'pass' | 'fail';
+  parser?: 'vitest' | 'tsc' | 'eslint';
+  timeout?: number;
+}
+
+export interface ValidationStepResult {
+  name: string;
+  passed: boolean;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  duration: number;
+  parsed?: { total?: number; passed?: number; failed?: number; errors?: string[] };
 }
 
 export interface WorkflowEdge {
@@ -63,10 +109,23 @@ export interface Workflow {
   userId: string;
 }
 
+export interface IntentManifest {
+  nodeId: string;
+  paths: string[];
+  declaredAt: Date;
+}
+
+export interface RunCheckpoint {
+  completedNodes: string[];
+  nodeStates: Record<string, NodeRunState>;
+  contextData: Record<string, unknown>;
+  timestamp: Date;
+}
+
 export interface RunState {
   runId: string;
   workflowId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'paused';
   nodeStates: Record<string, NodeRunState>;
   context: Record<string, unknown>;
   startedAt: Date;

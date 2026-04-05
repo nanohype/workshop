@@ -156,6 +156,9 @@ body {
 .node-glow-pink { box-shadow: 0 0 8px rgba(236, 72, 153, 0.12); }
 .node-glow-emerald { box-shadow: 0 0 8px rgba(16, 185, 129, 0.12); }
 .node-glow-violet { box-shadow: 0 0 8px rgba(139, 92, 246, 0.12); }
+.node-glow-sky { box-shadow: 0 0 8px rgba(14, 165, 233, 0.12); }
+.node-glow-teal { box-shadow: 0 0 8px rgba(20, 184, 166, 0.12); }
+.node-glow-rose { box-shadow: 0 0 8px rgba(244, 63, 94, 0.12); }
 
 /* Selected edge */
 .react-flow__edge.selected .react-flow__edge-path {

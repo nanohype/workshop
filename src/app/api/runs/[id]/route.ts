@@ -6,6 +6,7 @@ import { getAuthUserId } from '@/lib/api-auth';
 import { rateLimit } from '@/lib/rate-limit';
 import { handleApiError } from '@/lib/api-error';
 import { parseBody, parseUuid, cancelRunSchema } from '@/lib/validation';
+import { pauseRun, resumeWorkflowRun } from '@/lib/engine/run-simple';
 
 export async function GET(
   request: NextRequest,
@@ -58,17 +59,41 @@ export async function PATCH(
       return NextResponse.json({ error: 'Run not found' }, { status: 404 });
     }
 
-    if (['completed', 'failed', 'cancelled'].includes(run.status)) {
-      return NextResponse.json({ error: 'Run is already finished' }, { status: 400 });
+    const { action } = parsed.data;
+
+    if (action === 'cancel') {
+      if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+        return NextResponse.json({ error: 'Run is already finished' }, { status: 400 });
+      }
+      const [updated] = await db
+        .update(runs)
+        .set({ status: 'cancelled', completedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(runs.id, id), eq(runs.userId, userId)))
+        .returning();
+      return NextResponse.json(updated);
     }
 
-    const [updated] = await db
-      .update(runs)
-      .set({ status: 'cancelled', completedAt: new Date() })
-      .where(and(eq(runs.id, id), eq(runs.userId, userId)))
-      .returning();
+    if (action === 'pause') {
+      if (run.status !== 'running') {
+        return NextResponse.json({ error: 'Only running runs can be paused' }, { status: 400 });
+      }
+      await pauseRun(id);
+      const [updated] = await db
+        .select()
+        .from(runs)
+        .where(eq(runs.id, id));
+      return NextResponse.json(updated);
+    }
 
-    return NextResponse.json(updated);
+    if (action === 'resume') {
+      if (run.status !== 'paused') {
+        return NextResponse.json({ error: 'Only paused runs can be resumed' }, { status: 400 });
+      }
+      const result = await resumeWorkflowRun(id, userId);
+      return NextResponse.json(result);
+    }
+
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error) {
     return handleApiError(error, 'PATCH /api/runs/:id');
   }

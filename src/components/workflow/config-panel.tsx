@@ -402,6 +402,358 @@ export function ConfigPanel() {
           </>
         )}
 
+        {/* Git Commit config */}
+        {node.type === 'git-commit' && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label>Commit Message</Label>
+              <Textarea
+                value={(node.data as Record<string, unknown>).commitMessage as string || ''}
+                onChange={(e) => updateNode(node.id, { commitMessage: e.target.value } as Record<string, unknown>)}
+                placeholder="feat: add new feature"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Commit Template</Label>
+              <Textarea
+                value={(node.data as Record<string, unknown>).commitTemplate as string || ''}
+                onChange={(e) => updateNode(node.id, { commitTemplate: e.target.value } as Record<string, unknown>)}
+                placeholder="feat: {{feature_name}}"
+                rows={2}
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-dim">
+                {"Uses {{variable}} interpolation. Overrides static message when set."}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Branch</Label>
+              <Input
+                value={(node.data as Record<string, unknown>).branch as string || ''}
+                onChange={(e) => updateNode(node.id, { branch: e.target.value } as Record<string, unknown>)}
+                placeholder="Optional branch name"
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Create Branch</Label>
+                <p className="text-xs text-dim">Create and switch to a new branch before committing.</p>
+              </div>
+              <Switch
+                checked={(node.data as Record<string, unknown>).createBranch as boolean || false}
+                onCheckedChange={(checked) => updateNode(node.id, { createBranch: checked } as Record<string, unknown>)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Paths to Stage</Label>
+              <Input
+                value={((node.data as Record<string, unknown>).paths as string[] || []).join(', ')}
+                onChange={(e) => {
+                  const paths = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                  updateNode(node.id, { paths } as Record<string, unknown>);
+                }}
+                placeholder="Leave empty to stage all (git add -A)"
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-dim">Comma-separated file paths. Empty stages all changes.</p>
+            </div>
+          </>
+        )}
+
+        {/* GitHub PR config */}
+        {node.type === 'github-pr' && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label>PR Title</Label>
+              <Input
+                value={(node.data as Record<string, unknown>).prTitle as string || ''}
+                onChange={(e) => updateNode(node.id, { prTitle: e.target.value } as Record<string, unknown>)}
+                placeholder="Pull request title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>PR Title Template</Label>
+              <Input
+                value={(node.data as Record<string, unknown>).prTitleTemplate as string || ''}
+                onChange={(e) => updateNode(node.id, { prTitleTemplate: e.target.value } as Record<string, unknown>)}
+                placeholder="feat: {{feature_name}}"
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-dim">{"Overrides static title when set. Uses {{variable}} interpolation."}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>PR Body</Label>
+              <Textarea
+                value={(node.data as Record<string, unknown>).prBody as string || ''}
+                onChange={(e) => updateNode(node.id, { prBody: e.target.value } as Record<string, unknown>)}
+                placeholder="Description of changes..."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>PR Body Template</Label>
+              <Textarea
+                value={(node.data as Record<string, unknown>).prBodyTemplate as string || ''}
+                onChange={(e) => updateNode(node.id, { prBodyTemplate: e.target.value } as Record<string, unknown>)}
+                placeholder="## Summary\n{{summary}}"
+                rows={3}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Base Branch</Label>
+              <Input
+                value={(node.data as Record<string, unknown>).baseBranch as string || ''}
+                onChange={(e) => updateNode(node.id, { baseBranch: e.target.value } as Record<string, unknown>)}
+                placeholder="main"
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Draft PR</Label>
+                <p className="text-xs text-dim">Create as draft pull request.</p>
+              </div>
+              <Switch
+                checked={(node.data as Record<string, unknown>).draft as boolean || false}
+                onCheckedChange={(checked) => updateNode(node.id, { draft: checked } as Record<string, unknown>)}
+              />
+            </div>
+          </>
+        )}
+
+        {/* GitHub Issue config */}
+        {node.type === 'github-issue' && (
+          <>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Close Issue</Label>
+                <p className="text-xs text-dim">Close an existing issue instead of creating one.</p>
+              </div>
+              <Switch
+                checked={(node.data as Record<string, unknown>).closeIssue as boolean || false}
+                onCheckedChange={(checked) => updateNode(node.id, { closeIssue: checked } as Record<string, unknown>)}
+              />
+            </div>
+            {(node.data as Record<string, unknown>).closeIssue ? (
+              <div className="space-y-2">
+                <Label>Issue Number</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={(node.data as Record<string, unknown>).issueNumber as number || ''}
+                  onChange={(e) => updateNode(node.id, { issueNumber: parseInt(e.target.value) || undefined } as Record<string, unknown>)}
+                  placeholder="123"
+                />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Issue Title</Label>
+                  <Input
+                    value={(node.data as Record<string, unknown>).issueTitle as string || ''}
+                    onChange={(e) => updateNode(node.id, { issueTitle: e.target.value } as Record<string, unknown>)}
+                    placeholder="Issue title"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Issue Title Template</Label>
+                  <Input
+                    value={(node.data as Record<string, unknown>).issueTitleTemplate as string || ''}
+                    onChange={(e) => updateNode(node.id, { issueTitleTemplate: e.target.value } as Record<string, unknown>)}
+                    placeholder="Bug: {{bug_description}}"
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Issue Body</Label>
+                  <Textarea
+                    value={(node.data as Record<string, unknown>).issueBody as string || ''}
+                    onChange={(e) => updateNode(node.id, { issueBody: e.target.value } as Record<string, unknown>)}
+                    placeholder="Issue description..."
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Issue Body Template</Label>
+                  <Textarea
+                    value={(node.data as Record<string, unknown>).issueBodyTemplate as string || ''}
+                    onChange={(e) => updateNode(node.id, { issueBodyTemplate: e.target.value } as Record<string, unknown>)}
+                    placeholder="## Steps to Reproduce\n{{steps}}"
+                    rows={3}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Labels</Label>
+                  <Input
+                    value={((node.data as Record<string, unknown>).labels as string[] || []).join(', ')}
+                    onChange={(e) => {
+                      const labels = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                      updateNode(node.id, { labels } as Record<string, unknown>);
+                    }}
+                    placeholder="bug, priority:high"
+                    className="text-xs"
+                  />
+                  <p className="text-xs text-dim">Comma-separated label names.</p>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* GitHub Checks config */}
+        {node.type === 'github-checks' && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label>PR Number Source</Label>
+              <Input
+                value={(node.data as Record<string, unknown>).prNumberSource as string || ''}
+                onChange={(e) => updateNode(node.id, { prNumberSource: e.target.value } as Record<string, unknown>)}
+                placeholder="Node ID of upstream GitHub PR node"
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-dim">
+                Leave empty to auto-detect from upstream GitHub PR node.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Poll Interval (seconds)</Label>
+              <Input
+                type="number"
+                min={10}
+                max={300}
+                value={(node.data as Record<string, unknown>).pollInterval as number || 30}
+                onChange={(e) => updateNode(node.id, { pollInterval: Math.min(300, Math.max(10, parseInt(e.target.value) || 30)) } as Record<string, unknown>)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Checks Timeout (seconds)</Label>
+              <Input
+                type="number"
+                min={60}
+                max={3600}
+                value={(node.data as Record<string, unknown>).checksTimeout as number || 600}
+                onChange={(e) => updateNode(node.id, { checksTimeout: Math.min(3600, Math.max(60, parseInt(e.target.value) || 600)) } as Record<string, unknown>)}
+              />
+              <p className="text-xs text-dim">
+                Max time to wait for all checks to complete.
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Validate config */}
+        {node.type === 'validate' && (
+          <>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Template-Derived</Label>
+                <p className="text-xs text-dim">Steps auto-generated from template validation config.</p>
+              </div>
+              <Switch
+                checked={(node.data as Record<string, unknown>).templateDerived as boolean || false}
+                onCheckedChange={(checked) => updateNode(node.id, { templateDerived: checked } as Record<string, unknown>)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Validation Steps</Label>
+              {((node.data as Record<string, unknown>).validationSteps as { name: string; command: string; expect?: string; parser?: string; timeout?: number }[] || []).map((step, i: number) => (
+                <div key={i} className="space-y-1 p-2 rounded-md border border-border">
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={step.name}
+                      onChange={(e) => {
+                        const steps = [...((node.data as Record<string, unknown>).validationSteps as { name: string; command: string; expect?: string; parser?: string }[] || [])];
+                        steps[i] = { ...steps[i], name: e.target.value };
+                        updateNode(node.id, { validationSteps: steps } as Record<string, unknown>);
+                      }}
+                      placeholder="Step name"
+                      className="text-xs flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => {
+                        const steps = ((node.data as Record<string, unknown>).validationSteps as { name: string; command: string }[] || []).filter((_: unknown, j: number) => j !== i);
+                        updateNode(node.id, { validationSteps: steps } as Record<string, unknown>);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-rose-400" />
+                    </Button>
+                  </div>
+                  <Input
+                    value={step.command}
+                    onChange={(e) => {
+                      const steps = [...((node.data as Record<string, unknown>).validationSteps as { name: string; command: string; expect?: string; parser?: string }[] || [])];
+                      steps[i] = { ...steps[i], command: e.target.value };
+                      updateNode(node.id, { validationSteps: steps } as Record<string, unknown>);
+                    }}
+                    placeholder="npx vitest run"
+                    className="font-mono text-xs"
+                  />
+                  <div className="flex gap-1.5">
+                    <Select
+                      value={step.expect || 'pass'}
+                      onValueChange={(value) => {
+                        const steps = [...((node.data as Record<string, unknown>).validationSteps as { name: string; command: string; expect?: string; parser?: string }[] || [])];
+                        steps[i] = { ...steps[i], expect: value };
+                        updateNode(node.id, { validationSteps: steps } as Record<string, unknown>);
+                      }}
+                    >
+                      <SelectTrigger className="text-xs w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pass">Expect pass</SelectItem>
+                        <SelectItem value="fail">Expect fail</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={step.parser || 'none'}
+                      onValueChange={(value) => {
+                        const steps = [...((node.data as Record<string, unknown>).validationSteps as { name: string; command: string; expect?: string; parser?: string }[] || [])];
+                        steps[i] = { ...steps[i], parser: value === 'none' ? undefined : value };
+                        updateNode(node.id, { validationSteps: steps } as Record<string, unknown>);
+                      }}
+                    >
+                      <SelectTrigger className="text-xs flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No parser</SelectItem>
+                        <SelectItem value="vitest">Vitest</SelectItem>
+                        <SelectItem value="tsc">TypeScript</SelectItem>
+                        <SelectItem value="eslint">ESLint</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  const steps = [...((node.data as Record<string, unknown>).validationSteps as { name: string; command: string }[] || []), { name: '', command: '' }];
+                  updateNode(node.id, { validationSteps: steps } as Record<string, unknown>);
+                }}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Step
+              </Button>
+            </div>
+          </>
+        )}
+
         {/* Scaffold-specific config */}
         {node.type === 'scaffold' && (
           <>

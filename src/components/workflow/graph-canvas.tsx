@@ -29,6 +29,11 @@ import RouterNode from './node-types/router-node';
 import TransformNode from './node-types/transform-node';
 import GateNode from './node-types/gate-node';
 import ScaffoldNode from './node-types/scaffold-node';
+import GitCommitNode from './node-types/git-commit-node';
+import GithubPrNode from './node-types/github-pr-node';
+import GithubIssueNode from './node-types/github-issue-node';
+import GithubChecksNode from './node-types/github-checks-node';
+import ValidateNode from './node-types/validate-node';
 import ConditionalEdge from './edge-types/conditional-edge';
 import { useWorkflowStore } from '@/lib/store/workflow-store';
 import type { WorkflowNode } from '@/lib/engine/types';
@@ -46,6 +51,11 @@ const nodeTypes = {
   transform: TransformNode,
   gate: GateNode,
   scaffold: ScaffoldNode,
+  'git-commit': GitCommitNode,
+  'github-pr': GithubPrNode,
+  'github-issue': GithubIssueNode,
+  'github-checks': GithubChecksNode,
+  validate: ValidateNode,
 };
 
 const edgeTypes = {
@@ -410,6 +420,11 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
               case 'transform': return '#8b5cf6';
               case 'gate': return '#f59e0b';
               case 'scaffold': return '#10b981';
+              case 'git-commit': return '#f97316';
+              case 'github-pr': return '#3b82f6';
+              case 'github-issue': return '#22c55e';
+              case 'github-checks': return '#0ea5e9';
+              case 'validate': return '#f43f5e';
               default: return '#1E293B';
             }
           }}

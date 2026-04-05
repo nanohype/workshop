@@ -1,5 +1,6 @@
 import { Graph } from './graph';
 import type { RunContext } from './context';
+import type { WorkflowNode } from './types';
 
 export interface ScheduledBatch {
   nodeIds: string[];
@@ -35,6 +36,11 @@ export class Scheduler {
       );
 
       if (allPredsDone) {
+        const paths = this.getNodePaths(node);
+        if (paths.length > 0) {
+          const conflict = context.checkConflict(paths);
+          if (conflict) continue; // Stay pending — will retry next cycle
+        }
         ready.push(node.id);
       }
     }
@@ -53,5 +59,28 @@ export class Scheduler {
 
   isComplete(): boolean {
     return this.completed.size >= this.graph.nodes.length;
+  }
+
+  getCompleted(): string[] {
+    return Array.from(this.completed);
+  }
+
+  restoreCompleted(nodeIds: string[]): void {
+    for (const id of nodeIds) {
+      this.completed.add(id);
+    }
+  }
+
+  private getNodePaths(node: WorkflowNode): string[] {
+    switch (node.type) {
+      case 'scaffold':
+        return node.data.outputSubdir ? [node.data.outputSubdir] : [];
+      case 'agent':
+        return node.data.workspace && node.data.workspace !== 'off' ? ['.'] : [];
+      case 'git-commit':
+        return node.data.paths && node.data.paths.length > 0 ? node.data.paths : ['.'];
+      default:
+        return [];
+    }
   }
 }

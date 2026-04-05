@@ -1,10 +1,11 @@
-import type { NodeRunState, ExecutionEvent } from './types';
+import type { NodeRunState, ExecutionEvent, IntentManifest } from './types';
 
 export class RunContext {
   private data: Record<string, unknown> = {};
   private nodeStates: Record<string, NodeRunState> = {};
   private events: ExecutionEvent[] = [];
   private eventListeners: ((event: ExecutionEvent) => void)[] = [];
+  private intents = new Map<string, IntentManifest>();
 
   constructor(initialData: Record<string, unknown> = {}) {
     this.data = { ...initialData };
@@ -72,5 +73,42 @@ export class RunContext {
       }
     }
     return evaluateExpression(expression, safeContext);
+  }
+
+  declareIntent(nodeId: string, paths: string[]): void {
+    const normalized = paths.map(p => p.endsWith('/') ? p : p + '/');
+    this.intents.set(nodeId, { nodeId, paths: normalized, declaredAt: new Date() });
+  }
+
+  checkConflict(paths: string[]): string | null {
+    const normalized = paths.map(p => p.endsWith('/') ? p : p + '/');
+    for (const [holderId, manifest] of this.intents) {
+      for (const held of manifest.paths) {
+        for (const requested of normalized) {
+          if (held.startsWith(requested) || requested.startsWith(held)) {
+            return holderId;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  releaseIntent(nodeId: string): void {
+    this.intents.delete(nodeId);
+  }
+
+  serialize(): Record<string, unknown> {
+    const safeData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(this.data)) {
+      if (typeof value !== 'function') {
+        safeData[key] = value;
+      }
+    }
+    return safeData;
+  }
+
+  restoreNodeStates(states: Record<string, NodeRunState>): void {
+    this.nodeStates = { ...states };
   }
 }

@@ -68,7 +68,7 @@ export const listRunsQuerySchema = paginationSchema.extend({
 });
 
 export const cancelRunSchema = z.object({
-  action: z.literal('cancel'),
+  action: z.enum(['cancel', 'pause', 'resume']),
 });
 
 // --- Parse helpers ---
