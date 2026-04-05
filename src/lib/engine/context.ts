@@ -1,4 +1,5 @@
-import type { NodeRunState, ExecutionEvent, IntentManifest } from './types';
+import type { NodeRunState, ExecutionEvent, IntentManifest, ContextEvent } from './types';
+import { StreamBuffer } from './stream-buffer';
 
 export class RunContext {
   private data: Record<string, unknown> = {};
@@ -6,6 +7,9 @@ export class RunContext {
   private events: ExecutionEvent[] = [];
   private eventListeners: ((event: ExecutionEvent) => void)[] = [];
   private intents = new Map<string, IntentManifest>();
+  private contextEvents: ContextEvent[] = [];
+  private contextSubscribers = new Map<string, Set<(event: ContextEvent) => void>>();
+  private streamBuffers = new Map<string, StreamBuffer>();
 
   constructor(initialData: Record<string, unknown> = {}) {
     this.data = { ...initialData };
@@ -98,6 +102,54 @@ export class RunContext {
     this.intents.delete(nodeId);
   }
 
+  publish(event: ContextEvent): void {
+    if (!event.source || !event.type) return;
+    this.contextEvents.push(event);
+    const typed = this.contextSubscribers.get(event.type);
+    if (typed) {
+      for (const handler of typed) handler(event);
+    }
+    const wildcard = this.contextSubscribers.get('*');
+    if (wildcard) {
+      for (const handler of wildcard) handler(event);
+    }
+  }
+
+  subscribe(type: string, handler: (event: ContextEvent) => void): () => void {
+    let handlers = this.contextSubscribers.get(type);
+    if (!handlers) {
+      handlers = new Set();
+      this.contextSubscribers.set(type, handlers);
+    }
+    handlers.add(handler);
+    return () => {
+      handlers!.delete(handler);
+      if (handlers!.size === 0) this.contextSubscribers.delete(type);
+    };
+  }
+
+  getContextEvents(type?: string): ContextEvent[] {
+    if (!type) return [...this.contextEvents];
+    return this.contextEvents.filter(e => e.type === type);
+  }
+
+  restoreContextEvents(events: ContextEvent[]): void {
+    this.contextEvents = [...events];
+  }
+
+  getOrCreateStreamBuffer(nodeId: string): StreamBuffer {
+    let buffer = this.streamBuffers.get(nodeId);
+    if (!buffer) {
+      buffer = new StreamBuffer();
+      this.streamBuffers.set(nodeId, buffer);
+    }
+    return buffer;
+  }
+
+  getStreamBuffer(nodeId: string): StreamBuffer | undefined {
+    return this.streamBuffers.get(nodeId);
+  }
+
   serialize(): Record<string, unknown> {
     const safeData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(this.data)) {
@@ -105,6 +157,7 @@ export class RunContext {
         safeData[key] = value;
       }
     }
+    safeData.__contextEvents = this.contextEvents;
     return safeData;
   }
 

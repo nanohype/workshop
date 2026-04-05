@@ -45,7 +45,11 @@ export class Executor {
     if (options.checkpoint) {
       this.context.restoreNodeStates(options.checkpoint.nodeStates);
       for (const [key, value] of Object.entries(options.checkpoint.contextData)) {
-        this.context.set(key, value);
+        if (key === '__contextEvents') {
+          this.context.restoreContextEvents(value as import('./types').ContextEvent[]);
+        } else {
+          this.context.set(key, value);
+        }
       }
       this.scheduler.restoreCompleted(options.checkpoint.completedNodes);
     }
@@ -62,8 +66,13 @@ export class Executor {
     let totalOutputTokens = 0;
 
     while (!this.scheduler.isComplete() && !this.aborted && !this.paused) {
-      const batch = this.scheduler.getNextBatch(this.context);
-      if (!batch) break;
+      const batch = await this.scheduler.getNextBatch(this.context);
+      if (!batch) {
+        if (!this.scheduler.hasPendingNodes(this.context)) break;
+        // Nodes waiting for activateOn events or streaming edges — yield and retry
+        await new Promise(r => setTimeout(r, 500));
+        continue;
+      }
 
       if (batch.isParallel) {
         await Promise.all(
@@ -291,23 +300,23 @@ export class Executor {
     return (inputTokens * 3.0 + outputTokens * 15.0) / 1_000_000;
   }
 
-  private async executeAgentNode(node: WorkflowNode, signal?: AbortSignal): Promise<void> {
-    const workspaceMode = node.data.workspace || 'off';
-    const workspaceEnabled = workspaceMode !== 'off' && !!this.workspacePath;
-
-    let filesBefore: Map<string, number> | undefined;
-    if (workspaceEnabled) {
-      filesBefore = this.scanWorkspaceFiles(this.workspacePath!);
-    }
-
-    // Build prompt from predecessor outputs, with scaffold-aware context
-    const predecessors = this.graph.getPredecessors(node.id);
-    const previousOutputs = predecessors
+  private buildPredecessorContext(nodeId: string): string {
+    const predecessors = this.graph.getPredecessors(nodeId);
+    return predecessors
       .map(p => {
-        const output = this.context.getNodeOutput(p);
-        if (!output) return null;
         const predNode = this.graph.getNode(p);
         const label = predNode?.data.label || p;
+
+        // For streaming edges, read from StreamBuffer if available
+        const incomingEdge = this.graph.getIncomingEdges(nodeId).find(e => e.source === p);
+        let output: string | undefined;
+        if (incomingEdge?.streaming) {
+          const buffer = this.context.getStreamBuffer(p);
+          output = buffer ? buffer.getStableContent() : this.context.getNodeOutput(p);
+        } else {
+          output = this.context.getNodeOutput(p);
+        }
+        if (!output) return null;
 
         // Enrich scaffold node output with structured context for the agent
         if (predNode?.type === 'scaffold') {
@@ -336,10 +345,21 @@ export class Executor {
       })
       .filter(Boolean)
       .join('\n\n');
+  }
 
+  private async executeAgentNode(node: WorkflowNode, signal?: AbortSignal): Promise<void> {
+    const workspaceMode = node.data.workspace || 'off';
+    const workspaceEnabled = workspaceMode !== 'off' && !!this.workspacePath;
+
+    let filesBefore: Map<string, number> | undefined;
+    if (workspaceEnabled) {
+      filesBefore = this.scanWorkspaceFiles(this.workspacePath!);
+    }
+
+    const previousOutputs = this.buildPredecessorContext(node.id);
     const systemPrompt = node.data.systemPrompt;
-
     const provider = getProvider(node.data.provider || 'claude-code');
+    const buffer = this.context.getOrCreateStreamBuffer(node.id);
 
     let fullOutput = '';
     const stream = provider.stream(
@@ -359,6 +379,8 @@ export class Executor {
       for await (const chunk of stream) {
         if (chunk.type === 'text') {
           fullOutput += chunk.content;
+          buffer.append(chunk.content);
+          buffer.setWatermark();
           this.context.emit({
             type: 'node-output',
             nodeId: node.id,
@@ -370,6 +392,8 @@ export class Executor {
         }
       }
     } finally {
+      buffer.close();
+
       if (fullOutput) {
         this.context.setNodeOutput(node.id, fullOutput);
         this.context.setNodeState(node.id, { output: fullOutput });
@@ -394,6 +418,14 @@ export class Executor {
 
         if (changedFiles.length > 0) {
           this.context.setNodeState(node.id, { files: changedFiles });
+          for (const file of changedFiles) {
+            this.context.publish({
+              source: node.id,
+              type: 'file-written',
+              payload: { path: file.path, size: file.size },
+              timestamp: new Date(),
+            });
+          }
         }
       }
     }
@@ -669,6 +701,16 @@ export class Executor {
     const files = result.filesWritten.map(f => ({ path: f, size: 0 }));
     this.context.setNodeState(node.id, { files });
 
+    // Publish file-written events for each scaffolded file
+    for (const filePath of result.filesWritten) {
+      this.context.publish({
+        source: node.id,
+        type: 'file-written',
+        payload: { path: filePath },
+        timestamp: new Date(),
+      });
+    }
+
     // Store structured output for downstream nodes
     const output = JSON.stringify({
       template: result.templateName,
@@ -681,6 +723,18 @@ export class Executor {
       templateVariables: resolvedVars,
     });
     this.context.setNodeOutput(node.id, output);
+
+    // Publish scaffold-complete event
+    this.context.publish({
+      source: node.id,
+      type: 'scaffold-complete',
+      payload: {
+        template: result.templateName,
+        outputSubdir: node.data.outputSubdir || '',
+        filesWritten: result.filesWritten,
+      },
+      timestamp: new Date(),
+    });
   }
 
   private async executeGitCommitNode(node: WorkflowNode): Promise<void> {

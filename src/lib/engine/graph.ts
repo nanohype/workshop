@@ -122,6 +122,16 @@ export class Graph {
       }
     }
 
+    // Warn about dynamic edges on input nodes (conditions evaluated before context exists)
+    for (const edge of this.edges) {
+      if (edge.dynamicCondition || edge.activateOn) {
+        const sourceNode = this.nodeMap.get(edge.source);
+        if (sourceNode?.type === 'input') {
+          errors.push(`Edge "${edge.id}" has dynamic condition on an input node — condition will evaluate before any context exists`);
+        }
+      }
+    }
+
     return { valid: errors.length === 0, errors };
   }
 

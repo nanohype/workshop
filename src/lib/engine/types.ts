@@ -95,6 +95,9 @@ export interface WorkflowEdge {
   label?: string;
   condition?: string;
   sourceHandle?: string;
+  dynamicCondition?: string;
+  activateOn?: string;
+  streaming?: boolean;
 }
 
 export interface Workflow {
@@ -147,5 +150,12 @@ export interface ExecutionEvent {
   type: 'node-start' | 'node-output' | 'node-complete' | 'node-error' | 'node-waiting' | 'run-complete' | 'run-error';
   nodeId?: string;
   data: unknown;
+  timestamp: Date;
+}
+
+export interface ContextEvent {
+  source: string;
+  type: string;
+  payload: unknown;
   timestamp: Date;
 }
