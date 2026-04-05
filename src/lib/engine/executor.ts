@@ -8,6 +8,8 @@ import { execSync } from 'child_process';
 import { join, relative, resolve } from 'path';
 import { scaffoldTemplate, renderBrief, fetchTemplateKind } from '../nanohype/catalog';
 import { runValidationStep } from '../validation/runner';
+import { ProjectIndexManager } from '../project/index';
+import { renderProjectContext } from '../project/context-renderer';
 
 export interface ExecutorOptions {
   variables?: Record<string, string>;
@@ -25,6 +27,8 @@ export class Executor {
   private aborted = false;
   private paused = false;
   private onCheckpoint?: (checkpoint: RunCheckpoint) => void | Promise<void>;
+  private projectIndex: ProjectIndexManager | null = null;
+  private indexLock: Promise<void> = Promise.resolve();
 
   constructor(
     nodes: WorkflowNode[],
@@ -36,6 +40,9 @@ export class Executor {
     this.context = new RunContext(options.variables || {});
     this.workspacePath = options.workspacePath;
     this.onCheckpoint = options.onCheckpoint;
+    if (this.workspacePath) {
+      this.projectIndex = new ProjectIndexManager(this.workspacePath);
+    }
 
     if (options.onEvent) {
       this.context.onEvent(options.onEvent);
@@ -102,6 +109,22 @@ export class Executor {
           timestamp: new Date(),
         };
         await this.onCheckpoint(checkpoint);
+      }
+    }
+
+    // Refresh project index after run completes (inside lock to avoid racing with in-flight marker extraction)
+    if (this.projectIndex && !this.paused) {
+      try {
+        await this.withIndexLock(() => {
+          let index = this.projectIndex!.load();
+          if (index) {
+            index = this.projectIndex!.refresh(index);
+            index = this.projectIndex!.gc(index);
+            this.projectIndex!.save(index);
+          }
+        });
+      } catch {
+        // Non-fatal: index refresh failure should not fail the run
       }
     }
 
@@ -282,6 +305,56 @@ export class Executor {
     }
   }
 
+  private async withIndexLock<T>(fn: () => T | Promise<T>): Promise<T> {
+    const prev = this.indexLock;
+    let resolve!: () => void;
+    this.indexLock = new Promise<void>(r => { resolve = r; });
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      resolve();
+    }
+  }
+
+  private async extractAndUpdateIndex(node: WorkflowNode, output: string): Promise<void> {
+    if (!this.projectIndex || !output) return;
+    await this.withIndexLock(() => this.extractAndUpdateIndexInner(node, output));
+  }
+
+  private extractAndUpdateIndexInner(node: WorkflowNode, output: string): void {
+    if (!this.projectIndex) return;
+
+    let index = this.projectIndex.load();
+    if (!index) return;
+
+    const source = node.data.label || node.id;
+    let changed = false;
+
+    const decisionPattern = /<!--\s*decision:\s*([\s\S]*?)\s*-->/g;
+    let match: RegExpExecArray | null;
+    while ((match = decisionPattern.exec(output)) !== null) {
+      index = this.projectIndex.appendDecision(index, { text: match[1].trim(), source });
+      changed = true;
+    }
+
+    const conventionPattern = /<!--\s*convention:\s*([\s\S]*?)\s*-->/g;
+    while ((match = conventionPattern.exec(output)) !== null) {
+      index = this.projectIndex.addConvention(index, { text: match[1].trim(), source });
+      changed = true;
+    }
+
+    const issuePattern = /<!--\s*known-issue:\s*([\s\S]*?)\s*-->/g;
+    while ((match = issuePattern.exec(output)) !== null) {
+      index = this.projectIndex.addKnownIssue(index, { text: match[1].trim(), source });
+      changed = true;
+    }
+
+    if (changed) {
+      this.projectIndex.save(index);
+    }
+  }
+
   private getNodeIntentPaths(node: WorkflowNode): string[] {
     switch (node.type) {
       case 'scaffold':
@@ -357,14 +430,29 @@ export class Executor {
     }
 
     const previousOutputs = this.buildPredecessorContext(node.id);
-    const systemPrompt = node.data.systemPrompt;
+    // Inject project context into system prompt
+    let effectiveSystemPrompt = node.data.systemPrompt || '';
+    if (this.projectIndex) {
+      let index = this.projectIndex.load();
+      if (!index) {
+        index = this.projectIndex.build();
+        this.projectIndex.save(index);
+      }
+      const projectContext = renderProjectContext(index);
+      if (projectContext) {
+        effectiveSystemPrompt = effectiveSystemPrompt
+          ? `${projectContext}\n\n${effectiveSystemPrompt}`
+          : projectContext;
+      }
+    }
+
     const provider = getProvider(node.data.provider || 'claude-code');
     const buffer = this.context.getOrCreateStreamBuffer(node.id);
 
     let fullOutput = '';
     const stream = provider.stream(
       [
-        ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+        ...(effectiveSystemPrompt ? [{ role: 'system' as const, content: effectiveSystemPrompt }] : []),
         { role: 'user' as const, content: previousOutputs || (this.context.get('input') as string) || 'Begin' },
       ],
       {
@@ -397,6 +485,7 @@ export class Executor {
       if (fullOutput) {
         this.context.setNodeOutput(node.id, fullOutput);
         this.context.setNodeState(node.id, { output: fullOutput });
+        await this.extractAndUpdateIndex(node, fullOutput);
       }
 
       if (workspaceEnabled && this.workspacePath) {
@@ -735,6 +824,25 @@ export class Executor {
       },
       timestamp: new Date(),
     });
+
+    // Record template provenance in project index
+    if (this.projectIndex) {
+      await this.withIndexLock(() => {
+        let index = this.projectIndex!.load();
+        if (!index) {
+          index = this.projectIndex!.build();
+        }
+        index = this.projectIndex!.addTemplateProvenance(index, {
+          template: result.templateName,
+          displayName: result.templateDisplayName || result.templateName,
+          outputSubdir: node.data.outputSubdir || '',
+          filesWritten: result.filesWritten,
+          variables: resolvedVars,
+          scaffoldedAt: new Date().toISOString(),
+        });
+        this.projectIndex!.save(index);
+      });
+    }
   }
 
   private async executeGitCommitNode(node: WorkflowNode): Promise<void> {
