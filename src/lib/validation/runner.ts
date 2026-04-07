@@ -1,6 +1,9 @@
-import { execSync } from 'child_process';
+import { exec as execCb } from 'child_process';
+import { promisify } from 'util';
 import type { ValidationStep, ValidationStepResult } from '../engine/types';
 import { parseVitest, parseTsc, parseEslint } from './parsers';
+
+const exec = promisify(execCb);
 
 const PARSERS = {
   vitest: parseVitest,
@@ -8,25 +11,26 @@ const PARSERS = {
   eslint: parseEslint,
 } as const;
 
-export function runValidationStep(step: ValidationStep, cwd: string): ValidationStepResult {
+export async function runValidationStep(step: ValidationStep, cwd: string): Promise<ValidationStepResult> {
   const startTime = Date.now();
   let stdout = '';
   let stderr = '';
   let exitCode = 0;
 
   try {
-    const result = execSync(step.command, {
+    // Trust boundary: step.command comes from the workflow author who already has workspace access.
+    // Validation steps are intentionally arbitrary shell commands (e.g., `npx vitest run`).
+    const result = await exec(step.command, {
       cwd,
       timeout: (step.timeout || 120) * 1000,
-      stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
     });
-    stdout = result.toString();
+    stdout = result.stdout;
   } catch (err: unknown) {
-    const execErr = err as { status?: number; stdout?: Buffer; stderr?: Buffer };
-    exitCode = execErr.status ?? 1;
-    stdout = execErr.stdout?.toString() || '';
-    stderr = execErr.stderr?.toString() || '';
+    const execErr = err as { code?: number; stdout?: string; stderr?: string };
+    exitCode = execErr.code ?? 1;
+    stdout = execErr.stdout || '';
+    stderr = execErr.stderr || '';
   }
 
   const duration = Date.now() - startTime;

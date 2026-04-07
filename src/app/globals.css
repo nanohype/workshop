@@ -21,6 +21,7 @@
   --danger: #CF222E;
   --handle: #9A9A9A;
 
+  --dot-grid: rgba(0, 0, 0, 0.06);
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -43,6 +44,7 @@
   --warning: #D4A72C;
   --danger: #CF222E;
   --handle: #3B3B42;
+  --dot-grid: rgba(255, 255, 255, 0.05);
 }
 
 @theme inline {
@@ -109,11 +111,6 @@ body {
 ::selection { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 
 /* Animations */
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 @keyframes scale-in {
   from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
@@ -122,10 +119,6 @@ body {
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.2s var(--ease-spring) both;
 }
 
 .animate-scale-in {
@@ -138,20 +131,13 @@ body {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Stagger delays */
-.stagger-1 { animation-delay: 30ms; }
-.stagger-2 { animation-delay: 60ms; }
-.stagger-3 { animation-delay: 90ms; }
-.stagger-4 { animation-delay: 120ms; }
-.stagger-5 { animation-delay: 150ms; }
-
 /* Node glow effects — subtle */
 .node-glow-orange { box-shadow: 0 0 8px rgba(249, 115, 22, 0.12); }
 .node-glow-green { box-shadow: 0 0 8px rgba(34, 197, 94, 0.12); }
-.node-glow-purple { box-shadow: 0 0 8px rgba(168, 85, 247, 0.12); }
 .node-glow-blue { box-shadow: 0 0 8px rgba(59, 130, 246, 0.12); }
-.node-glow-cyan { box-shadow: 0 0 8px rgba(110, 124, 241, 0.12); }
+.node-glow-accent { box-shadow: 0 0 8px rgba(110, 124, 241, 0.12); }
 .node-glow-amber { box-shadow: 0 0 8px rgba(245, 158, 11, 0.12); }
+.node-glow-yellow { box-shadow: 0 0 8px rgba(202, 138, 4, 0.12); }
 .node-glow-indigo { box-shadow: 0 0 8px rgba(99, 102, 241, 0.12); }
 .node-glow-pink { box-shadow: 0 0 8px rgba(236, 72, 153, 0.12); }
 .node-glow-emerald { box-shadow: 0 0 8px rgba(16, 185, 129, 0.12); }

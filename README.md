@@ -4,25 +4,11 @@ Visual workflow builder for [nanohype](https://github.com/nanohype/nanohype) tem
 
 Part of the [nanohype](https://github.com/nanohype) ecosystem.
 
-## Architecture
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/workshop.svg">
-  <img alt="workshop architecture" src="docs/workshop.svg">
-</picture>
-
-## Workflow Pipelines
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-pipeline.svg">
-  <img alt="workflow pipeline examples" src="docs/workflow-pipeline.svg">
-</picture>
-
 ## Node Types
 
 | Node | Purpose |
 |------|---------|
-| **Claude Code** | Execute a Claude Code session with a system prompt |
+| **Agent** | Execute a Claude Code session with a system prompt |
 | **Scaffold** | Render a nanohype template into the workspace |
 | **Condition** | True/false branching via JavaScript expressions |
 | **Router** | Multi-way branching with N labeled routes |
@@ -31,6 +17,11 @@ Part of the [nanohype](https://github.com/nanohype) ecosystem.
 | **Loop** | Repeat until a condition is met |
 | **Input** | Workflow entry point |
 | **Output** | Workflow exit point |
+| **Git Commit** | Stage and commit changes in the workspace |
+| **GitHub PR** | Create or update a pull request |
+| **GitHub Issue** | Create or close an issue |
+| **GitHub Checks** | Wait for CI checks to pass on a PR |
+| **Validate** | Run validation steps (vitest, tsc, eslint) |
 
 ## nanohype Integration
 

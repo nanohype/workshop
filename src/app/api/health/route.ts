@@ -27,6 +27,13 @@ export async function GET() {
     checks.claude_code = 'error';
   }
 
+  // Best-effort stale run recovery on health check
+  if (checks.database === 'ok') {
+    import('@/lib/engine/run-simple')
+      .then(m => m.recoverStaleRuns())
+      .catch(() => {});
+  }
+
   const allOk = checks.database === 'ok';
 
   const health = {

@@ -4,8 +4,12 @@ import { RunContext } from './context';
 import { getProvider } from '../providers';
 import type { WorkflowNode, RunState, RunCheckpoint, ExecutionEvent } from './types';
 import { readdirSync, statSync, writeFileSync, mkdirSync } from 'fs';
-import { execSync } from 'child_process';
+import { execFile as execFileCb, exec as execCb } from 'child_process';
+import { promisify } from 'util';
 import { join, relative, resolve } from 'path';
+
+const execFile = promisify(execFileCb);
+const exec = promisify(execCb);
 import { scaffoldTemplate, renderBrief, fetchTemplateKind } from '../nanohype/catalog';
 import { runValidationStep } from '../validation/runner';
 import { ProjectIndexManager } from '../project/index';
@@ -17,6 +21,7 @@ export interface ExecutorOptions {
   onEvent?: (event: ExecutionEvent) => void;
   onCheckpoint?: (checkpoint: RunCheckpoint) => void | Promise<void>;
   checkpoint?: RunCheckpoint;
+  checkGateDecision?: (nodeId: string) => Promise<'approved' | 'rejected' | null>;
 }
 
 export class Executor {
@@ -27,6 +32,7 @@ export class Executor {
   private aborted = false;
   private paused = false;
   private onCheckpoint?: (checkpoint: RunCheckpoint) => void | Promise<void>;
+  private checkGateDecision?: (nodeId: string) => Promise<'approved' | 'rejected' | null>;
   private projectIndex: ProjectIndexManager | null = null;
   private indexLock: Promise<void> = Promise.resolve();
 
@@ -40,6 +46,7 @@ export class Executor {
     this.context = new RunContext(options.variables || {});
     this.workspacePath = options.workspacePath;
     this.onCheckpoint = options.onCheckpoint;
+    this.checkGateDecision = options.checkGateDecision;
     if (this.workspacePath) {
       this.projectIndex = new ProjectIndexManager(this.workspacePath);
     }
@@ -54,6 +61,11 @@ export class Executor {
       for (const [key, value] of Object.entries(options.checkpoint.contextData)) {
         if (key === '__contextEvents') {
           this.context.restoreContextEvents(value as import('./types').ContextEvent[]);
+        } else if (key === '__nodeOutputs') {
+          const outputs = value as Record<string, string>;
+          for (const [nodeId, output] of Object.entries(outputs)) {
+            this.context.setNodeOutput(nodeId, output);
+          }
         } else {
           this.context.set(key, value);
         }
@@ -71,15 +83,20 @@ export class Executor {
     const startTime = new Date();
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let yieldRetries = 0;
+    const MAX_YIELD_RETRIES = 120; // 60 seconds at 500ms
 
     while (!this.scheduler.isComplete() && !this.aborted && !this.paused) {
       const batch = await this.scheduler.getNextBatch(this.context);
       if (!batch) {
         if (!this.scheduler.hasPendingNodes(this.context)) break;
-        // Nodes waiting for activateOn events or streaming edges — yield and retry
+        if (++yieldRetries > MAX_YIELD_RETRIES) {
+          throw new Error('Scheduler deadlock: pending nodes never became ready');
+        }
         await new Promise(r => setTimeout(r, 500));
         continue;
       }
+      yieldRetries = 0;
 
       if (batch.isParallel) {
         await Promise.all(
@@ -139,7 +156,7 @@ export class Executor {
     const cost = this.estimateCost(totalInputTokens, totalOutputTokens);
 
     const runState: RunState = {
-      runId: crypto.randomUUID(),
+      runId: '',
       workflowId: '',
       status,
       nodeStates: this.context.getAllNodeStates(),
@@ -611,7 +628,7 @@ export class Executor {
       timestamp: new Date(),
     });
 
-    // Poll for gate decision — check DB every 2 seconds
+    // Poll for gate decision — try DB callback first, fall back to in-memory context
     const maxWaitMs = 3600_000; // 1 hour
     const pollIntervalMs = 2000;
     const startTime = Date.now();
@@ -619,13 +636,21 @@ export class Executor {
     while (Date.now() - startTime < maxWaitMs) {
       if (this.aborted) throw new Error('Run was cancelled');
 
-      // Check if gate has been resolved via context
-      const decision = this.context.get(`gate_${node.id}_decision`);
+      let decision: string | null | undefined = null;
+      if (this.checkGateDecision) {
+        decision = await this.checkGateDecision(node.id);
+      }
+      if (!decision) {
+        decision = this.context.get(`gate_${node.id}_decision`) as string | undefined;
+      }
+
       if (decision === 'approved') {
+        this.context.set(`gate_${node.id}_decision`, 'approved');
         this.context.setNodeOutput(node.id, 'approved');
         return;
       }
       if (decision === 'rejected') {
+        this.context.set(`gate_${node.id}_decision`, 'rejected');
         throw new Error(`Gate "${node.data.label}" was rejected`);
       }
 
@@ -687,14 +712,7 @@ export class Executor {
     const resolvedVars: Record<string, string | boolean | number> = { ...staticVars };
 
     for (const [varName, expression] of Object.entries(bindings)) {
-      const resolved = expression.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-        const nodeOutput = this.context.get(`node_${key}_output`);
-        if (nodeOutput !== undefined) return String(nodeOutput);
-        const contextVal = this.context.get(key);
-        if (contextVal !== undefined) return String(contextVal);
-        return '';
-      });
-      resolvedVars[varName] = resolved;
+      resolvedVars[varName] = this.interpolateTemplate(expression);
     }
 
     // Check template kind — briefs render text, templates scaffold files
@@ -754,7 +772,7 @@ export class Executor {
           timestamp: new Date(),
         });
         try {
-          const hookOutput = execSync(hook.run, {
+          const hookResult = await exec(hook.run, {
             cwd: hookCwd,
             timeout: 120_000,
             env: {
@@ -762,9 +780,8 @@ export class Executor {
               NANOHYPE_TEMPLATE_NAME: result.templateName,
               NANOHYPE_OUTPUT_DIR: hookCwd,
             },
-            stdio: ['pipe', 'pipe', 'pipe'],
           });
-          const outputStr = hookOutput.toString().slice(-500);
+          const outputStr = hookResult.stdout.slice(-500);
           if (outputStr) {
             this.context.emit({
               type: 'node-output',
@@ -857,33 +874,34 @@ export class Executor {
 
     // Optionally create and switch to a new branch
     if (node.data.createBranch && node.data.branch) {
-      execSync(`git checkout -b ${node.data.branch}`, { cwd, stdio: 'pipe' });
+      await execFile('git', ['checkout', '-b', node.data.branch], { cwd });
     } else if (node.data.branch) {
-      execSync(`git checkout ${node.data.branch}`, { cwd, stdio: 'pipe' });
+      await execFile('git', ['checkout', node.data.branch], { cwd });
     }
 
     // Stage files
     if (node.data.paths && node.data.paths.length > 0) {
       for (const p of node.data.paths) {
-        execSync(`git add ${p}`, { cwd, stdio: 'pipe' });
+        await execFile('git', ['add', p], { cwd });
       }
     } else {
-      execSync('git add -A', { cwd, stdio: 'pipe' });
+      await execFile('git', ['add', '-A'], { cwd });
     }
 
     // Commit
-    execSync(`git commit -m ${JSON.stringify(message)}`, { cwd, stdio: 'pipe' });
+    await execFile('git', ['commit', '-m', message], { cwd });
 
     // Capture output
-    const sha = execSync('git rev-parse HEAD', { cwd, stdio: 'pipe' }).toString().trim();
-    const branch = execSync('git branch --show-current', { cwd, stdio: 'pipe' }).toString().trim();
+    const { stdout: sha } = await execFile('git', ['rev-parse', 'HEAD'], { cwd });
+    const { stdout: branchOut } = await execFile('git', ['branch', '--show-current'], { cwd });
+    const branch = branchOut.trim();
     let filesChanged: string[] = [];
     try {
-      filesChanged = execSync('git diff --name-only HEAD~1', { cwd, stdio: 'pipe' })
-        .toString().trim().split('\n').filter(Boolean);
+      const { stdout: diffOut } = await execFile('git', ['diff', '--name-only', 'HEAD~1'], { cwd });
+      filesChanged = diffOut.trim().split('\n').filter(Boolean);
     } catch { /* initial commit */ }
 
-    const output = JSON.stringify({ sha, branch, filesChanged, message });
+    const output = JSON.stringify({ sha: sha.trim(), branch, filesChanged, message });
     this.context.setNodeOutput(node.id, output);
   }
 
@@ -900,19 +918,20 @@ export class Executor {
       : node.data.prBody || '';
 
     const cwd = this.workspacePath;
-    const args = ['gh', 'pr', 'create', '--title', JSON.stringify(title), '--body', JSON.stringify(body)];
+    const args = ['pr', 'create', '--title', title, '--body', body];
     if (node.data.baseBranch) args.push('--base', node.data.baseBranch);
     if (node.data.draft) args.push('--draft');
 
     let stdout: string;
     try {
-      stdout = execSync(args.join(' '), { cwd, stdio: 'pipe' }).toString().trim();
+      const result = await execFile('gh', args, { cwd });
+      stdout = result.stdout.trim();
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       // If PR already exists, fall back to edit
       if (errMsg.includes('already exists')) {
-        const editArgs = ['gh', 'pr', 'edit', '--title', JSON.stringify(title), '--body', JSON.stringify(body)];
-        stdout = execSync(editArgs.join(' '), { cwd, stdio: 'pipe' }).toString().trim();
+        const result = await execFile('gh', ['pr', 'edit', '--title', title, '--body', body], { cwd });
+        stdout = result.stdout.trim();
       } else {
         throw err;
       }
@@ -934,7 +953,7 @@ export class Executor {
 
     // Close mode
     if (node.data.closeIssue && node.data.issueNumber) {
-      execSync(`gh issue close ${node.data.issueNumber}`, { cwd, stdio: 'pipe' });
+      await execFile('gh', ['issue', 'close', String(node.data.issueNumber)], { cwd });
       const output = JSON.stringify({ action: 'closed', number: node.data.issueNumber });
       this.context.setNodeOutput(node.id, output);
       return;
@@ -950,12 +969,12 @@ export class Executor {
       ? this.interpolateTemplate(node.data.issueBodyTemplate)
       : node.data.issueBody || '';
 
-    const args = ['gh', 'issue', 'create', '--title', JSON.stringify(title), '--body', JSON.stringify(body)];
+    const args = ['issue', 'create', '--title', title, '--body', body];
     if (node.data.labels && node.data.labels.length > 0) {
       args.push('--label', node.data.labels.join(','));
     }
 
-    const stdout = execSync(args.join(' '), { cwd, stdio: 'pipe' }).toString().trim();
+    const { stdout } = await execFile('gh', args, { cwd });
 
     const urlMatch = stdout.match(/https:\/\/github\.com\/[^\s]+\/issues\/(\d+)/);
     const issueUrl = urlMatch?.[0] || stdout;
@@ -1008,12 +1027,17 @@ export class Executor {
 
       let checksJson: string;
       try {
-        checksJson = execSync(
-          `gh pr checks ${prNumber} --json name,state,conclusion`,
-          { cwd, stdio: 'pipe' }
-        ).toString().trim();
-      } catch {
-        // gh pr checks may fail if no checks exist yet — wait and retry
+        const result = await execFile(
+          'gh', ['pr', 'checks', String(prNumber), '--json', 'name,state,conclusion'],
+          { cwd }
+        );
+        checksJson = result.stdout.trim();
+      } catch (e) {
+        const msg = (e as Error).message || '';
+        if (msg.includes('auth') || msg.includes('permission') || msg.includes('not found')) {
+          throw new Error(`GitHub checks failed: ${msg}`);
+        }
+        // Transient error (no checks yet, rate limit) — wait and retry
         await new Promise(r => setTimeout(r, pollInterval));
         continue;
       }
@@ -1073,7 +1097,7 @@ export class Executor {
         timestamp: new Date(),
       });
 
-      const result = runValidationStep(step, this.workspacePath);
+      const result = await runValidationStep(step, this.workspacePath);
       results.push(result);
 
       if (!result.passed) allPassed = false;

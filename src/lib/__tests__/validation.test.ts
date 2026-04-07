@@ -5,7 +5,7 @@ import {
   createWorkflowSchema,
   updateWorkflowSchema,
   listRunsQuerySchema,
-  cancelRunSchema,
+  runActionSchema,
   parseBody,
   parseQuery,
   parseUuid,
@@ -135,19 +135,19 @@ describe('listRunsQuerySchema', () => {
   });
 });
 
-describe('cancelRunSchema', () => {
+describe('runActionSchema', () => {
   it('accepts cancel action', () => {
-    expect(cancelRunSchema.parse({ action: 'cancel' })).toEqual({ action: 'cancel' });
+    expect(runActionSchema.parse({ action: 'cancel' })).toEqual({ action: 'cancel' });
   });
 
   it('rejects other actions', () => {
-    expect(cancelRunSchema.safeParse({ action: 'restart' }).success).toBe(false);
+    expect(runActionSchema.safeParse({ action: 'restart' }).success).toBe(false);
   });
 });
 
 describe('parseBody', () => {
   it('returns success with parsed data', () => {
-    const result = parseBody(cancelRunSchema, { action: 'cancel' });
+    const result = parseBody(runActionSchema, { action: 'cancel' });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.action).toBe('cancel');
@@ -155,7 +155,7 @@ describe('parseBody', () => {
   });
 
   it('returns 400 response on failure', () => {
-    const result = parseBody(cancelRunSchema, { action: 'nope' });
+    const result = parseBody(runActionSchema, { action: 'nope' });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.response.status).toBe(400);

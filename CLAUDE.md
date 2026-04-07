@@ -23,7 +23,7 @@ Visual workflow builder for nanohype templates. Part of the nanohype ecosystem.
 - Composite-to-workflow generator creates scaffold + review agent pairs
 
 ## Important Paths
-- Engine: `src/lib/engine/` (graph.ts, executor.ts, scheduler.ts, context.ts, run-simple.ts, sandbox.ts, types.ts)
+- Engine: `src/lib/engine/` (graph.ts, executor.ts, scheduler.ts, context.ts, run-simple.ts, sandbox.ts, stream-buffer.ts, types.ts)
 - nanohype: `src/lib/nanohype/` (catalog.ts, composite-to-workflow.ts)
 - Provider: `src/lib/providers/claude-code.ts`
 - DB: `src/lib/db/schema/` (shared.ts, workshop.ts)
@@ -42,6 +42,8 @@ Visual workflow builder for nanohype templates. Part of the nanohype ecosystem.
 - All API routes use `getAuthUserId()` for ownership enforcement
 - Undo/redo: 50-entry snapshot history in workflow store
 - Shared DB schema (public.*), workshop-specific in workshop.* schema
+- Gate node uses `checkGateDecision` callback: executor polls via callback, run-simple.ts implements DB query
+- Run callbacks extracted into `makeRunCallbacks()` factory in run-simple.ts (shared by start and resume)
 
 ## Environment
 - `WORKSHOP_ENV` — local | dev | staging | prod

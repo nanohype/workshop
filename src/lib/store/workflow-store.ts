@@ -37,6 +37,8 @@ interface WorkflowState {
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
+  setNodeRunFlags: (nodeId: string, flags: { isRunning?: boolean; isCompleted?: boolean; isFailed?: boolean; isWaiting?: boolean }) => void;
+  clearAllRunFlags: () => void;
 }
 
 function pushHistory(state: WorkflowState): Pick<WorkflowState, 'history' | 'future'> {
@@ -117,7 +119,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   })),
 
   removeVariable: (key) => set((state) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { [key]: _removed, ...rest } = state.variables;
     return { variables: rest, isDirty: true };
   }),
@@ -178,4 +179,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   canUndo: () => get().history.length > 0,
   canRedo: () => get().future.length > 0,
+
+  // Run-state flags — transient, no undo history, no isDirty
+  setNodeRunFlags: (nodeId, flags) => set((state) => ({
+    nodes: state.nodes.map((n) =>
+      n.id === nodeId ? { ...n, data: { ...n.data, ...flags } } : n
+    ),
+  })),
+
+  clearAllRunFlags: () => set((state) => ({
+    nodes: state.nodes.map((n) => {
+      const { isRunning: _r, isCompleted: _c, isFailed: _f, isWaiting: _w, ...rest } = n.data as Record<string, unknown>;
+      return { ...n, data: rest as WorkflowNode['data'] };
+    }),
+  })),
 }));

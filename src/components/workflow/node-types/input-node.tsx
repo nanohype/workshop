@@ -16,8 +16,8 @@ function InputNode({ data, selected }: NodeProps & { data: InputNodeData }) {
   return (
     <div
       className={cn(
-        'relative rounded-md border border-border bg-card min-w-[180px] shadow-sm transition-all',
-        selected && 'node-glow-cyan',
+        'relative rounded-md border border-border bg-card min-w-[180px] shadow-sm transition-shadow',
+        selected && 'node-glow-accent',
         data.isCompleted && 'border-emerald-500/50'
       )}
     >

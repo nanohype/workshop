@@ -5,6 +5,7 @@ import { Search, Blocks, Package, Tag, ChevronDown, ChevronUp, User } from 'luci
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import type { TemplateManifest } from '@/lib/nanohype/catalog';
 
 interface CatalogEntry {
   name: string;
@@ -15,19 +16,6 @@ interface CatalogEntry {
   persona?: string[];
   category?: string;
   tags: string[];
-}
-
-interface TemplateManifest {
-  apiVersion: string;
-  name: string;
-  displayName: string;
-  description: string;
-  version: string;
-  tags: string[];
-  variables: { name: string; type: string; description: string; required?: boolean; default?: string | boolean | number; options?: string[] }[];
-  conditionals?: { path: string; when: string }[];
-  composition?: { pairsWith?: string[]; nestsInside?: string[] };
-  prerequisites?: { name: string; version?: string; purpose: string; optional?: boolean }[];
 }
 
 interface CompositeCatalogEntry {

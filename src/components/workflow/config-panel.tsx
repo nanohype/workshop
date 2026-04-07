@@ -12,7 +12,8 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useWorkflowStore } from '@/lib/store/workflow-store';
 import { TemplateBrowser } from '@/components/nanohype/template-browser';
-import { PROVIDERS } from '@/lib/providers';
+import { PROVIDER_LIST } from '@/lib/providers/metadata';
+import type { TemplateManifest } from '@/lib/nanohype/catalog';
 
 export function ConfigPanel() {
   const { selectedNodeId, nodes, edges, updateNode, selectNode, removeNode } = useWorkflowStore();
@@ -24,14 +25,14 @@ export function ConfigPanel() {
   const outgoingEdges = edges.filter((e) => e.source === node.id).length;
 
   return (
-    <div className="w-80 border-l border-border bg-card flex flex-col">
+    <div className="w-80 border-l border-border bg-card flex flex-col" role="region" aria-label="Node configuration">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground font-display">Node Configuration</h3>
           <p className="text-xs text-dim font-mono mt-0.5">{node.id}</p>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => selectNode(null)}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => selectNode(null)} aria-label="Close configuration panel">
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -73,7 +74,7 @@ export function ConfigPanel() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROVIDERS.map((p) => (
+                  {PROVIDER_LIST.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -952,10 +953,6 @@ function ScaffoldVariableEditor({
       </div>
     </div>
   );
-}
-
-interface TemplateManifest {
-  variables: { name: string; type: string; default?: string | boolean | number }[];
 }
 
 function TemplatePicker({ onSelect }: { onSelect: (name: string, manifest?: TemplateManifest) => void }) {

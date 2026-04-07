@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 interface ScaffoldNodeData {
   label: string;
   templateName?: string;
-  templateKind?: 'template' | 'brief';
   templateVariables?: Record<string, string | boolean | number>;
   isRunning?: boolean;
   isCompleted?: boolean;
@@ -18,12 +17,12 @@ interface ScaffoldNodeData {
 
 function ScaffoldNode({ data, selected }: NodeProps & { data: ScaffoldNodeData }) {
   const varCount = data.templateVariables ? Object.keys(data.templateVariables).length : 0;
-  const isBrief = data.templateKind === 'brief' || data.templateName?.startsWith('brief-');
+  const isBrief = data.templateName?.startsWith('brief-') ?? false;
 
   return (
     <div
       className={cn(
-        'relative rounded-md border border-border bg-card min-w-[180px] shadow-sm transition-all',
+        'relative rounded-md border border-border bg-card min-w-[180px] shadow-sm transition-shadow',
         selected && (isBrief ? 'node-glow-orange' : 'node-glow-emerald'),
         data.isCompleted && 'border-emerald-500/50',
         data.isFailed && 'border-rose-500/50'

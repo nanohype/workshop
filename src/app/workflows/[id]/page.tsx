@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Toolbar } from '@/components/workflow/toolbar';
 import { useWorkflowStore } from '@/lib/store/workflow-store';
+import { useRunStore } from '@/lib/store/run-store';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Graph } from '@/lib/engine/graph';
@@ -72,6 +73,11 @@ export default function WorkflowBuilderPage({ params }: { params: Promise<{ id: 
 
     fetchWorkflow();
   }, [id, loadWorkflow]);
+
+  // Clean up SSE connection on unmount
+  useEffect(() => {
+    return () => useRunStore.getState().disconnectFromRun();
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -154,6 +160,7 @@ export default function WorkflowBuilderPage({ params }: { params: Promise<{ id: 
       }
 
       const { runId } = await res.json();
+      useRunStore.getState().connectToRun(runId);
       toast({ title: 'Workflow run started' });
       router.push(`/workflows/${currentId}/runs/${runId}`);
     } catch (err) {

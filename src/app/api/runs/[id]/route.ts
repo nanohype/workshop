@@ -5,7 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { getAuthUserId } from '@/lib/api-auth';
 import { rateLimit } from '@/lib/rate-limit';
 import { handleApiError } from '@/lib/api-error';
-import { parseBody, parseUuid, cancelRunSchema } from '@/lib/validation';
+import { parseBody, parseUuid, runActionSchema } from '@/lib/validation';
 import { pauseRun, resumeWorkflowRun } from '@/lib/engine/run-simple';
 
 export async function GET(
@@ -47,7 +47,7 @@ export async function PATCH(
 
     const body = await request.json();
 
-    const parsed = parseBody(cancelRunSchema, body);
+    const parsed = parseBody(runActionSchema, body);
     if (!parsed.success) return parsed.response;
 
     const [run] = await db

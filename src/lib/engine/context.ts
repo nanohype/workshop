@@ -3,6 +3,7 @@ import { StreamBuffer } from './stream-buffer';
 
 export class RunContext {
   private data: Record<string, unknown> = {};
+  private nodeOutputs: Record<string, string> = {};
   private nodeStates: Record<string, NodeRunState> = {};
   private events: ExecutionEvent[] = [];
   private eventListeners: ((event: ExecutionEvent) => void)[] = [];
@@ -28,11 +29,13 @@ export class RunContext {
   }
 
   setNodeOutput(nodeId: string, output: string): void {
+    this.nodeOutputs[nodeId] = output;
+    // Keep backward-compat key for interpolateTemplate lookups
     this.data[`node_${nodeId}_output`] = output;
   }
 
   getNodeOutput(nodeId: string): string | undefined {
-    return this.data[`node_${nodeId}_output`] as string | undefined;
+    return this.nodeOutputs[nodeId];
   }
 
   getNodeState(nodeId: string): NodeRunState {
@@ -158,6 +161,7 @@ export class RunContext {
       }
     }
     safeData.__contextEvents = this.contextEvents;
+    safeData.__nodeOutputs = this.nodeOutputs;
     return safeData;
   }
 

@@ -25,7 +25,7 @@ function RouterNode({ data, selected }: NodeProps & { data: RouterNodeData }) {
   return (
     <div
       className={cn(
-        'relative rounded-md border border-border bg-card min-w-[180px] shadow-sm transition-all',
+        'relative rounded-md border border-border bg-card min-w-[180px] shadow-sm transition-shadow',
         selected && 'node-glow-teal',
         data.isCompleted && 'border-emerald-500/50',
         data.isFailed && 'border-rose-500/50'

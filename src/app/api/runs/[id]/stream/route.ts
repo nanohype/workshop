@@ -37,12 +37,17 @@ export async function GET(
         }
       };
 
+      // Send retry directive so EventSource reconnects automatically
+      try {
+        controller.enqueue(encoder.encode('retry: 2000\n\n'));
+      } catch { /* closed */ }
+
       // Send initial heartbeat
       sendEvent('heartbeat', { time: Date.now() });
 
       let completed = false;
       let pollCount = 0;
-      const maxPolls = 600; // 10 minutes at 1s intervals
+      const maxPolls = 3600; // 1 hour at 1s intervals
 
       while (!completed && pollCount < maxPolls) {
         // Check if client disconnected

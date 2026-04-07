@@ -70,7 +70,7 @@ export async function GET(
       // Return file contents
       const resolved = resolve(workspacePath, normalize(filePath));
       // Prevent path traversal
-      if (!resolved.startsWith(workspacePath)) {
+      if (!resolved.startsWith(workspacePath + '/') && resolved !== workspacePath) {
         return NextResponse.json({ error: 'Invalid file path' }, { status: 400 });
       }
 

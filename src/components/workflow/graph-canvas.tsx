@@ -15,7 +15,6 @@ import {
   type Edge,
   type NodeChange,
   type EdgeChange,
-  ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -168,14 +167,17 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
       setEdges((eds) => addEdge(rfEdge, eds));
 
       isSyncingFromFlow.current = true;
-      store.addEdge({
-        id: edgeId,
-        source: params.source,
-        target: params.target,
-        label,
-      });
-      storeEdgesRef.current = store.edges;
-      isSyncingFromFlow.current = false;
+      try {
+        store.addEdge({
+          id: edgeId,
+          source: params.source,
+          target: params.target,
+          label,
+        });
+        storeEdgesRef.current = useWorkflowStore.getState().edges;
+      } finally {
+        isSyncingFromFlow.current = false;
+      }
     },
     [setEdges, store]
   );
@@ -216,14 +218,17 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
 
       setNodes((nds) => [...nds, newNode]);
       isSyncingFromFlow.current = true;
-      store.addNode({
-        id: newNodeId,
-        type: type as WorkflowNode['type'],
-        position,
-        data: { label: label || type },
-      });
-      storeNodesRef.current = store.nodes;
-      isSyncingFromFlow.current = false;
+      try {
+        store.addNode({
+          id: newNodeId,
+          type: type as WorkflowNode['type'],
+          position,
+          data: { label: label || type },
+        });
+        storeNodesRef.current = useWorkflowStore.getState().nodes;
+      } finally {
+        isSyncingFromFlow.current = false;
+      }
     },
     [screenToFlowPosition, setNodes, store]
   );
@@ -242,14 +247,18 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
       const removals = changes.filter((c) => c.type === 'remove');
       if (removals.length > 0) {
         isSyncingFromFlow.current = true;
-        for (const change of removals) {
-          if (change.type === 'remove') {
-            store.removeNode(change.id);
+        try {
+          for (const change of removals) {
+            if (change.type === 'remove') {
+              store.removeNode(change.id);
+            }
           }
+          const fresh = useWorkflowStore.getState();
+          storeNodesRef.current = fresh.nodes;
+          storeEdgesRef.current = fresh.edges;
+        } finally {
+          isSyncingFromFlow.current = false;
         }
-        storeNodesRef.current = store.nodes;
-        storeEdgesRef.current = store.edges;
-        isSyncingFromFlow.current = false;
       }
 
       // Handle position changes (debounced via dragend)
@@ -265,9 +274,12 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
           // Defer store sync to avoid setState-during-render warning
           queueMicrotask(() => {
             isSyncingFromFlow.current = true;
-            store.setNodes(workflowNodes);
-            storeNodesRef.current = store.nodes;
-            isSyncingFromFlow.current = false;
+            try {
+              store.setNodes(workflowNodes);
+              storeNodesRef.current = useWorkflowStore.getState().nodes;
+            } finally {
+              isSyncingFromFlow.current = false;
+            }
           });
           return currentNodes;
         });
@@ -284,13 +296,16 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
       const removals = changes.filter((c) => c.type === 'remove');
       if (removals.length > 0) {
         isSyncingFromFlow.current = true;
-        for (const change of removals) {
-          if (change.type === 'remove') {
-            store.removeEdge(change.id);
+        try {
+          for (const change of removals) {
+            if (change.type === 'remove') {
+              store.removeEdge(change.id);
+            }
           }
+          storeEdgesRef.current = useWorkflowStore.getState().edges;
+        } finally {
+          isSyncingFromFlow.current = false;
         }
-        storeEdgesRef.current = store.edges;
-        isSyncingFromFlow.current = false;
       }
     },
     [onEdgesChange, store]
@@ -336,14 +351,17 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
           };
           setNodes(nds => [...nds, newNode]);
           isSyncingFromFlow.current = true;
-          store.addNode({
-            id: newId,
-            type: node.type as WorkflowNode['type'],
-            position,
-            data: { ...node.data, label: `${node.data.label || node.type} (copy)` } as WorkflowNode['data'],
-          });
-          storeNodesRef.current = store.nodes;
-          isSyncingFromFlow.current = false;
+          try {
+            store.addNode({
+              id: newId,
+              type: node.type as WorkflowNode['type'],
+              position,
+              data: { ...node.data, label: `${node.data.label || node.type} (copy)` } as WorkflowNode['data'],
+            });
+            storeNodesRef.current = useWorkflowStore.getState().nodes;
+          } finally {
+            isSyncingFromFlow.current = false;
+          }
           store.selectNode(newId);
         }
       }
@@ -366,14 +384,17 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
 
         setNodes(nds => [...nds, newNode]);
         isSyncingFromFlow.current = true;
-        store.addNode({
-          id: newId,
-          type: clipboard.type as WorkflowNode['type'],
-          position,
-          data: { ...clipboard.data, label: `${clipboard.data.label || clipboard.type} (copy)` } as WorkflowNode['data'],
-        });
-        storeNodesRef.current = store.nodes;
-        isSyncingFromFlow.current = false;
+        try {
+          store.addNode({
+            id: newId,
+            type: clipboard.type as WorkflowNode['type'],
+            position,
+            data: { ...clipboard.data, label: `${clipboard.data.label || clipboard.type} (copy)` } as WorkflowNode['data'],
+          });
+          storeNodesRef.current = useWorkflowStore.getState().nodes;
+        } finally {
+          isSyncingFromFlow.current = false;
+        }
       }
     };
 
@@ -382,7 +403,7 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
   }, [store, nodes, setNodes, setEdges]);
 
   return (
-    <div ref={reactFlowWrapper} className="flex-1 h-full">
+    <div ref={reactFlowWrapper} className="flex-1 h-full" role="region" aria-label="Workflow canvas">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -418,7 +439,7 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
               case 'loop': return '#ec4899';
               case 'router': return '#14b8a6';
               case 'transform': return '#8b5cf6';
-              case 'gate': return '#f59e0b';
+              case 'gate': return '#ca8a04';
               case 'scaffold': return '#10b981';
               case 'git-commit': return '#f97316';
               case 'github-pr': return '#3b82f6';
@@ -436,7 +457,6 @@ function GraphCanvasInner({ onNodeSelect }: GraphCanvasProps) {
   );
 }
 
-export { ReactFlowProvider };
 
 export function GraphCanvas(props: GraphCanvasProps) {
   return <GraphCanvasInner {...props} />;

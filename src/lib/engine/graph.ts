@@ -122,6 +122,14 @@ export class Graph {
       }
     }
 
+    // Warn about unimplemented providers on agent nodes
+    const STUB_PROVIDERS = new Set(['gemini-cli', 'codex']);
+    for (const node of this.nodes) {
+      if (node.type === 'agent' && node.data.provider && STUB_PROVIDERS.has(node.data.provider)) {
+        errors.push(`Agent node "${node.data.label}" uses provider "${node.data.provider}" which is not yet implemented`);
+      }
+    }
+
     // Warn about dynamic edges on input nodes (conditions evaluated before context exists)
     for (const edge of this.edges) {
       if (edge.dynamicCondition || edge.activateOn) {
